@@ -9,7 +9,7 @@ const globals = new Set([
   '__CLIMB_BACKEND_URL__', '__CLIMB_WEB_URL__', 'window', 'document', 'navigator',
   'requestAnimationFrame', 'cancelAnimationFrame', 'localStorage', 'sessionStorage',
   'HTMLElement', 'Element', 'HTMLInputElement', 'HTMLMediaElement', 'Audio', 'Image',
-  'MediaStream', 'MediaRecorder', 'AudioContext', 'FileReader', 'ResizeObserver',
+  'MediaStream', 'MediaRecorder', 'AudioContext', 'AudioWorkletNode', 'AudioWorkletProcessor', 'registerProcessor', 'FileReader', 'ResizeObserver',
   'MutationObserver', 'Node', 'DOMParser', 'XMLSerializer', 'Event', 'CustomEvent',
   'KeyboardEvent', 'MouseEvent', 'WebSocket', 'WebSocketPair', 'MediaSource',
   'HTMLAudioElement', 'HTMLVideoElement', 'SpeechSynthesisUtterance', 'screen', 'location', 'performance',
@@ -19,7 +19,7 @@ async function files(directory) {
   for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
     const file = path.join(directory, entry.name);
     if (entry.isDirectory()) found.push(...await files(file));
-    else if (file.endsWith('.mjs') || file.endsWith('.cjs')) found.push(file);
+    else if (/\.(mjs|cjs|js)$/.test(file)) found.push(file);
   }
   return found;
 }

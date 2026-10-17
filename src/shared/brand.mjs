@@ -10,6 +10,7 @@ export const BRAND = Object.freeze({
   englishName: 'Zhiyue',
   developer: 'gulinyue',
   supportUrl: 'https://afdian.com/a/gulinyue618',
+  feedbackEmail: 'linyue_clawbot001@163.com',
   tagline: '知有所向，思有跃迁。',
   appId: 'gulinyue.zhiyue',
   sourceWatermark: '知跃 / Zhiyue · Developed by gulinyue',

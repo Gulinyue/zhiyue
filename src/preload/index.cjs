@@ -20,6 +20,14 @@ electron.ipcRenderer.on(
   }
 );
 const api = {
+  interview: {
+    connection: () => electron.ipcRenderer.invoke('interview:connection'),
+    saveConnection: (value) => electron.ipcRenderer.invoke('interview:saveConnection', value),
+    removeConnection: () => electron.ipcRenderer.invoke('interview:removeConnection'),
+    start: () => electron.ipcRenderer.invoke('interview:start'),
+    stop: (sessionId) => electron.ipcRenderer.invoke('interview:stop', sessionId),
+    transcribe: (value) => electron.ipcRenderer.invoke('interview:transcribe', value),
+  },
   written: {
     enter: () => electron.ipcRenderer.invoke(IPC.writtenEnter),
     exit: () => electron.ipcRenderer.invoke(IPC.writtenExit),
@@ -108,6 +116,7 @@ const api = {
   },
   app: {
     openSupport: () => electron.ipcRenderer.invoke(IPC.appOpenSupport),
+    openFeedback: () => electron.ipcRenderer.invoke(IPC.appOpenFeedback),
     quit: () => electron.ipcRenderer.invoke(IPC.appQuit),
     downloadUpdate: (downloadUrl) => electron.ipcRenderer.invoke(IPC.appDownloadUpdate, { downloadUrl }),
     onUpdateDownloadProgress: (cb) => subscribe(IPC.appUpdateDownloadProgress, cb)

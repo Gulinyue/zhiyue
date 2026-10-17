@@ -21,9 +21,10 @@ const results = await Promise.all([
   build({ ...common, entryPoints: ['src/renderer/local/style.css'], outfile: 'out/renderer/assets/app.css', loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file' }, assetNames: '[name]-[hash]' }),
 ]);
 await fs.mkdir('artifacts', { recursive: true });
-await fs.writeFile('artifacts/build-inputs.json', JSON.stringify([...new Set(results.flatMap((result) => Object.keys(result.metafile.inputs)))].sort(), null, 2) + '\n');
+await fs.writeFile('artifacts/build-inputs.json', JSON.stringify([...new Set([...results.flatMap((result) => Object.keys(result.metafile.inputs)), 'src/renderer/local/interview-worklet.js'])].sort(), null, 2) + '\n');
 await fs.copyFile('src/main/bootstrap.cjs', 'out/main/index.js');
 await fs.copyFile('src/renderer/index.html', 'out/renderer/index.html');
+await fs.copyFile('src/renderer/local/interview-worklet.js', 'out/renderer/assets/interview-worklet.js');
 await fs.copyFile('resources/icon.png', 'out/renderer/assets/icon.png');
 await fs.copyFile('resources/logo.svg', 'out/renderer/assets/logo.svg');
 for (const file of ['out/main/runtime.cjs', 'out/renderer/assets/app.js']) {

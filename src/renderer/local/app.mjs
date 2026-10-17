@@ -10,6 +10,9 @@ import { ModelCard, ChatGptAccount } from './model-card.mjs';
 import { HotkeySettings, FocusResizeHandle } from './window-controls.mjs';
 import { WrittenSettings } from './written-settings.mjs';
 import { normalizeWrittenOptions } from '../../shared/written-options.mjs';
+import { DeveloperContact } from './developer-contact.mjs';
+import { SpeechSettings } from './speech-settings.mjs';
+import { LiveInterview } from './live-interview.mjs';
 
 const h = React.createElement;
 const api = window.api;
@@ -22,6 +25,8 @@ const paint = () => new Promise((resolve) => { const timeout = setTimeout(resolv
 
 function App() {
   const [page, setPage] = React.useState('chat');
+  const [interviewSeed, setInterviewSeed] = React.useState(null);
+  const [interviewKey, setInterviewKey] = React.useState(0);
   const [conversation, setConversation] = React.useState(fresh);
   const [draft, setDraft] = React.useState('');
   const [images, setImages] = React.useState([]);
@@ -67,8 +72,8 @@ function App() {
     return () => { mounted.current = false; unsubWritten(); unsubSettings(); unsubOpacity(); unsubInteraction(); unsubHotkeys(); unsubReveal(); if (active.current) void api.personalModels.cancel(active.current); };
   }, []);
   React.useEffect(() => { if (follow.current) thread.current?.scrollTo({ top: thread.current.scrollHeight, behavior: 'auto' }); }, [conversation.messages, busy]);
-  React.useEffect(() => { void api.hotkey.setAnswerScrollActive(page === 'chat' || page === 'exam'); return () => { void api.hotkey.setAnswerScrollActive(false); }; }, [page]);
-  React.useEffect(() => { if (!writtenState.current) void api.window.setWorkMode(focus ? 'exam' : 'idle'); }, [page]);
+  React.useEffect(() => { void api.hotkey.setAnswerScrollActive(['chat', 'exam', 'interview'].includes(page)); return () => { void api.hotkey.setAnswerScrollActive(false); }; }, [page]);
+  React.useEffect(() => { if (!writtenState.current) void api.window.setWorkMode(page === 'interview' ? 'interview' : focus ? 'exam' : 'idle'); }, [page, focus]);
   React.useEffect(() => { if (page === 'history') void reloadHistory().catch((error) => report(error.message)); }, [page]);
   React.useEffect(() => { document.documentElement.dataset.appSurface = focus ? 'focus' : 'preparation'; }, [focus]);
 
@@ -164,7 +169,7 @@ function App() {
     if (writtenState.current) { await api.written.exit(); return; }
     try {
       setFocus(next);
-      const token = await api.window.setTaskSurface(next || page === 'exam' ? 'exam' : 'idle', next ? 'focus' : 'preparation', next);
+      const token = await api.window.setTaskSurface(page === 'interview' ? 'interview' : next || page === 'exam' ? 'exam' : 'idle', next ? 'focus' : 'preparation', next);
       await paint();
       if (token !== null && !await api.window.commitTaskSurface(token)) throw new Error('窗口切换已过期，请重试。');
     } catch (error) { report(error.message); setFocus(false); }
@@ -178,10 +183,11 @@ function App() {
     catch (error) { report(error.message); }
   }
   async function openConversation(id) {
-    try { const item = await api.workspace.read(id); if (item) { if (item.mode === 'written') { await enterWritten(item); return; } follow.current = true; setConversation(item); setImages([]); setDraft(''); setPage('chat'); } }
+    try { const item = await api.workspace.read(id); if (item) { if (item.mode === 'written') { await enterWritten(item); return; } if (item.mode === 'interview') { setInterviewSeed(item); setInterviewKey((value) => value + 1); setPage('interview'); return; } follow.current = true; setConversation(item); setImages([]); setDraft(''); setPage('chat'); } }
     catch (error) { report(error.message); }
   }
   function selectPage(id) {
+    if (id === 'interview' && (active.current || captureLease.current)) { report('请先停止当前生成或等待截图完成，再进入实时面试。'); return; }
     if (id === 'exam') { void enterWritten(); return; }
     if (id === 'chat' && conversation.mode === 'written') {
       if (active.current || captureLease.current) { report('请先停止当前生成或等待截图完成。'); return; }
@@ -222,7 +228,6 @@ function App() {
           (candidates.at(-1) || root).scrollBy({ left: action.endsWith('Left') ? -180 : 180, behavior: 'instant' });
         }
       }
-      else if (action === 'listen:toggle') report('本地版尚未接入语音识别，请使用文字或截图。');
     },
   };
 
@@ -284,6 +289,8 @@ function App() {
   }
   function renderSettings() {
     return h('div', { className: 'page-scroll' }, h('div', { className: 'page-heading' }, h('h1', null, '连接与设置'), h('p', null, '选择模型服务商，使用 API Key 或官方 ChatGPT 账号授权。')),
+      h(DeveloperContact, { report }),
+      h(SpeechSettings, { settings, patchSettings, report }),
       h(WrittenSettings, { settings, documents, patchSettings, start: () => enterWritten() }),
       h(ChatGptAccount, { report, reload: reloadModels }),
       h('div', { className: 'model-grid' }, h(ModelCard, { key: 'interview', slot: 'interview', title: '文字问答模型', snapshot: models, reload: reloadModels, report }), h(ModelCard, { key: 'screenshot', slot: 'screenshot', title: '截图分析模型', snapshot: models, reload: reloadModels, report })),
@@ -297,16 +304,13 @@ function App() {
       h(HotkeySettings, { settings, patchSettings, report }),
       h('section', { className: 'panel about-brand', 'data-about-brand': true },
         h('img', { src: './assets/logo.svg', alt: '知跃 Logo' }),
-        h('div', { className: 'about-brand-copy' }, h('h3', null, BRAND.name + ' · ' + BRAND.englishName + ' ' + BRAND.version), h('p', null, BRAND.tagline), h('p', { className: 'developer-watermark' }, '开发者 · ' + BRAND.developer), h('p', { className: 'muted small' }, '社区免费版 · 连接自己的模型，数据保存在本机。')),
-        h('div', { className: 'support-developer' },
-          button('♥ 爱发电支持开发者 ↗', async () => { try { await api.app.openSupport(); } catch { report('暂时无法打开赞助页面，请稍后重试。'); } }, { className: 'support-button', 'data-support-developer': true, title: '在默认浏览器中打开爱发电赞助页' }),
-          h('p', null, '请作者喝杯咖啡，支持后续开发'), h('p', { className: 'support-note' }, '赞助完全自愿，不影响免费使用。'))),
-      h('section', { className: 'panel capability-note' }, h('h3', null, '这个版本支持什么'), h('p', null, '已支持文字问答、笔试截图出答案、文字模拟面试、本机知识库和会话记录。语音识别和手机远控尚未接入。'), h('p', { className: 'muted small' }, '社区版不依赖应用账号服务器。使用在线模型时仍需联网；使用本机模型服务时，请填写 localhost 或 127.0.0.1 接口。')));
+        h('div', { className: 'about-brand-copy' }, h('h3', null, BRAND.name + ' · ' + BRAND.englishName + ' ' + BRAND.version), h('p', null, BRAND.tagline), h('p', { className: 'developer-watermark' }, '开发者 · ' + BRAND.developer), h('p', { className: 'muted small' }, '社区免费版 · 连接自己的模型，数据保存在本机。'))),
+      h('section', { className: 'panel capability-note' }, h('h3', null, '这个版本支持什么'), h('p', null, '支持实时面试系统收音、分句转写与自动回答，以及文字问答、笔试截图出答案、文字模拟面试、本机知识库和会话记录。手机远控尚未接入。'), h('p', { className: 'muted small' }, '社区版不依赖应用账号服务器。使用在线语音与回答模型时需联网；也可连接本机兼容服务。')));
   }
-  const pages = [['chat', '✦', '工作台'], ['exam', '▣', '笔试模式'], ['knowledge', '▤', '本机知识库'], ['history', '◷', '会话记录'], ['settings', '⚙', '连接与设置']];
+  const pages = [['chat', '✦', '工作台'], ['interview', '◉', '实时面试'], ['exam', '▣', '笔试模式'], ['knowledge', '▤', '本机知识库'], ['history', '◷', '会话记录'], ['settings', '⚙', '连接与设置']];
   return h('div', { className: `local-app ${focus ? 'is-focus' : ''} ${writtenActive ? 'is-written-passive' : ''}`, 'data-local-app': true, 'data-written-active': writtenActive, style: { opacity: opacityPreview ?? (writtenActive ? normalizeWrittenOptions(settings?.writtenOptions).opacity : through ? settings?.mouseThroughOpacity || 0.48 : settings?.opacity || 1) } },
     !focus && h('aside', { className: 'sidebar' }, h('div', { className: 'brand drag' }, h('img', { src: './assets/logo.svg', alt: '知跃 Logo' }), h('b', null, BRAND.name), h('span', null, '社区版')),
-      button('＋ 新会话', () => { setConversation(fresh(page === 'exam' ? 'written' : 'chat')); setImages([]); setDraft(''); setPage(page === 'exam' ? 'exam' : 'chat'); }, { className: 'new-conversation', disabled: busy || capturing }),
+      button('＋ 新会话', () => { if (page === 'interview') { setInterviewSeed(null); setInterviewKey((value) => value + 1); return; } setConversation(fresh(page === 'exam' ? 'written' : 'chat')); setImages([]); setDraft(''); setPage(page === 'exam' ? 'exam' : 'chat'); }, { className: 'new-conversation', disabled: busy || capturing }),
       h('nav', null, ...pages.map(([id, icon, label]) => button(h(React.Fragment, null, h('span', null, icon), label), () => selectPage(id), { key: id, className: page === id ? 'nav-item active' : 'nav-item', 'data-page': id }))),
       h('div', { className: 'sidebar-footer' }, h('span', { className: 'local-badge' }, '● 社区免费版'), h('p', null, BRAND.tagline, h('br'), `开发者 · ${BRAND.developer}`))),
     h('main', { className: 'main-area' }, h('header', { className: 'topbar drag' },
@@ -317,7 +321,7 @@ function App() {
           h('input', { type: 'range', min: .01, max: 1, step: .01, value: opacityPreview ?? (through ? settings?.mouseThroughOpacity || .48 : settings?.opacity || 1), onChange: (e) => patchSettings(through ? { mouseThroughOpacity: Number(e.target.value) } : { opacity: Number(e.target.value) }) })),
         button('隐藏', () => api.window.hide(), { title: `${settings?.hotkeys?.['window:show'] || '托盘'} 解除隐藏`, 'aria-label': '隐藏窗口' }), button(focus ? '退出专注' : '专注窗口', () => toggleFocus()), button('—', () => api.window.minimize(), { 'aria-label': '最小化' }), button('×', () => api.window.close(), { 'aria-label': '关闭窗口' }))),
       notice && h('div', { className: notice.success ? 'notice success' : 'notice', role: notice.success ? 'status' : 'alert' }, h('span', null, notice.text), button('×', () => setNotice(null), { 'aria-label': '关闭提示' })),
-      page === 'chat' || page === 'exam' ? renderChat() : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && !writtenActive && h(FocusResizeHandle));
+      page === 'interview' ? h(LiveInterview, { key: interviewKey, seed: interviewSeed, settings, models, documents, report, configure: () => setPage('settings') }) : page === 'chat' || page === 'exam' ? renderChat() : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && !writtenActive && h(FocusResizeHandle));
 }
 
 const surface = new URLSearchParams(window.location.search).get('surface');

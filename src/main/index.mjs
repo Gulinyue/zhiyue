@@ -32,6 +32,7 @@ import { BRAND } from '../shared/brand.mjs';
 import { normalizeWrittenOptions } from '../shared/written-options.mjs';
 import { ChatGptPlanAdapter } from './models/chatgpt-adapter.mjs';
 import { discoverModels } from './models/native-adapters.mjs';
+import { speechConnection, saveSpeechConnection, removeSpeechConnection, startInterview, stopInterview, interviewIsActive, transcribeInterview } from './interview/service.mjs';
 // 知跃 / Zhiyue · Developed by gulinyue. See LICENSE.
 "use strict";
 const HOTKEY_ACTIONS = [
@@ -2436,7 +2437,14 @@ function registerIpc() {
   if (ipcRegistered) return;
   ipcRegistered = true;
   registerWorkspaceIpc(mainIpc);
+  mainIpc.handle('interview:connection', () => speechConnection());
+  mainIpc.handle('interview:saveConnection', (_event, raw) => saveSpeechConnection(raw));
+  mainIpc.handle('interview:removeConnection', () => removeSpeechConnection());
+  mainIpc.handle('interview:start', () => { if (writtenSessionActive) throw new Error('请先退出笔试模式。'); return startInterview(); });
+  mainIpc.handle('interview:stop', (_event, sessionId) => stopInterview(typeof sessionId === 'string' ? sessionId : undefined));
+  mainIpc.handle('interview:transcribe', (_event, raw) => transcribeInterview(raw));
   mainIpc.handle(IPC.appOpenSupport, () => electron.shell.openExternal(BRAND.supportUrl));
+  mainIpc.handle(IPC.appOpenFeedback, () => electron.shell.openExternal(`mailto:${BRAND.feedbackEmail}?subject=${encodeURIComponent(`知跃 ${BRAND.version} Bug 反馈`)}`));
   mainIpc.handle(IPC.writtenEnter, () => enterWrittenMode());
   mainIpc.handle(IPC.writtenExit, () => exitWrittenMode());
   mainIpc.handle(IPC.writtenStatus, () => writtenStatus());
@@ -3233,6 +3241,7 @@ function personalModelSettingsErrorMessage(error) {
 }
 function createRendererUnavailableHandler(controls) {
   return (_reason) => {
+    stopInterview();
     controls.setMobileViewportActive(false);
     controls.setAnswerScrollActive(false);
     controls.setWorkMode("idle");
@@ -3278,8 +3287,9 @@ if (!gotLock) {
     } catch {
     }
     electron.session.defaultSession.setDisplayMediaRequestHandler(
-      (_request, callback) => {
-        void handleDisplayMediaRequest(callback);
+      (request, callback) => {
+        if (!win || win.isDestroyed() || request.frame !== win.webContents.mainFrame || !interviewIsActive()) { callback({}); return; }
+        void handleDisplayMediaRequest((selection) => { callback(interviewIsActive() && win && !win.isDestroyed() && request.frame === win.webContents.mainFrame ? selection : {}); });
       },
       { useSystemPicker: false }
     );
@@ -3298,6 +3308,7 @@ if (!gotLock) {
   electron.app.on("window-all-closed", () => {
   });
   electron.app.on("will-quit", () => {
+    stopInterview();
     clearInterval(writtenProtectionTimer);
     destroyAppTray();
     flushPendingWindowPosition();
