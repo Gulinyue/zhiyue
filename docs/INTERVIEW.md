@@ -4,24 +4,32 @@
 
 ## 使用流程
 
-系统播放设备 → Electron Windows loopback → 16 kHz 单声道音频 → 本机能量门限与停顿检测 → 内存 WAV 片段 → 用户配置的语音转写服务 → 问题合并 → 已配置的文字模型 → 流式参考回答。
+在连接与设置中配置文字问答模型和语音服务后，点击侧栏“实时面试”或“开始面试”。应用立即启动系统收音，进入与笔试相同的半透明、鼠标穿透、不可点击且不抢焦点的悬浮窗；不再需要第二次点击开始。默认不透明度 52%，面试定制中可修改，并显式选择显示或隐藏快捷键提示栏。
 
-不请求麦克风，不上传屏幕图像。启动系统收音时 Chromium 同时返回视频轨道，应用立即停止视频轨道，只处理音频。点击开始后才申请收音，结束或离开页面时释放音轨和 AudioContext，停止转写与回答。历史记录不会自动开始监听。
+系统播放设备 → Electron Windows loopback → 16 kHz 单声道音频 → 本机能量门限与停顿检测 → 内存 WAV 片段 → 语音转写 → 已配置的文字模型 → 流式参考回答。
+
+不请求麦克风，不上传屏幕图像。Chromium 返回的视频轨道会立即停止，只处理音频。Ctrl+Shift+Z 或 Ctrl+3 结束收音、转写和回答，并恢复设置界面；隐藏后也能退出。Ctrl+Shift+H 隐藏，Ctrl+Shift+E 恢复显示，恢复后仍保持穿透。从历史记录选择继续面试也会启动收音。
+
+主窗口和快捷键提示栏均使用 Windows WDA_EXCLUDEFROMCAPTURE；进入前确认退出快捷键可用。捕获排除不可用时拒绝进入，运行期间定期检查并尝试恢复保护。该机制只覆盖支持它的系统捕获路径。
 
 ## 服务与配置
 
-语音服务采用 OpenAI 兼容的 `POST /audio/transcriptions`，上传 `file`、`model` 和 `response_format=json`，可选 `language` 与 `prompt`，读取响应中的 `text`。服务需支持 16 kHz PCM WAV。模型 ID 按服务商实际支持填写，默认示例为 `gpt-4o-mini-transcribe`；兼容服务的模型名可能不同。本机接口可以不设认证，远端必须使用 HTTPS 和单独的 Key。ChatGPT 套餐授权不用于语音转写。
+提供 OpenAI、Groq、硅基流动、Together AI、本机 Whisper 兼容服务及自定义接口预设。切换服务商自动填充地址和模型候选；可获取模型列表、选择模型或手动填写 ID。预设不保证账号有权限，建议测试后保存。模型列表不可用时仍可直接填写模型。
 
-连接信息与系统加密的密钥保存在 `speech-service.json`；明文密钥不会出现在普通 settings、渲染器连接快照或会话文件里。渲染器只读取连接元数据与密钥末四位。更换地址不会把旧地址的 Key 发送给新服务。请求不跟随重定向，错误消息不回显上游正文。
+采用 OpenAI 兼容的 POST /audio/transcriptions，上传 file、model，通常附带 response_format=json、可选 language 与 prompt；硅基流动按其文档只发送 file/model，界面禁用不支持的语言和热词设置。服务需支持 16 kHz PCM WAV，并返回 JSON text。本机接口可以无认证，远端必须使用 HTTPS 和独立 Key。ChatGPT 套餐授权不用于语音转写。
 
-停顿默认 1.1 秒，可在 0.5–2.5 秒间调整；静音和短促声音不提交。长问题每 20 秒分段转写，只有停顿结束后才合并为一次自动回答。转写排队有数量上限，落后过多时停止收音并提示；回答排队满时暂停收音、保留当前问题在输入框，避免继续堆积。
+“测试并保存”发送 0.5 秒合成音验证上传和响应，不访问音频设备，服务商可能计费；只在成功后保存，失败保留原配置。该测试不评估真实语音识别质量，也可选择直接保存。
 
-支持识别语言、热词、回答语言、回答提示词和本地知识库开关。关闭自动回答后，可人工修正转写再提交。音频不自动落盘；只持久化文本问题和回答。资料按关键词检索，只有启用且匹配的片段进入回答请求。
+连接与系统加密的密钥保存在 speech-service.json；普通设置、连接快照或会话文件没有明文密钥。渲染器只读取元数据与密钥末四位。更换地址不会把旧地址的 Key 发送给新服务。请求不跟随重定向，错误消息不回显上游正文。
+
+停顿默认 1.1 秒，可在 0.5–2.5 秒间调整；静音和短促声音不提交。长问题每 20 秒分段，停顿后合并回答。转写和回答队列有数量上限，落后过多时结束收音并返回设置，避免无界堆积。
+
+支持回答语言、回答提示词和本地知识库。关闭自动回答后，转写保留在悬浮窗底部，按 Alt+C 提交当前问题。音频不自动落盘，只持久化文本问题和回答。只有启用且匹配的知识片段进入请求。
 
 ## 验证与体验
 
-单元测试覆盖 WAV 格式与大小、停顿分句、长问题合并、取消与迟到结果、队列上限、连接地址和错误脱敏。Electron 集成测试使用真实 AudioWorklet、合成音源与本机模拟服务，验证两轮自动转写与回答、密钥加密、停止当前生成、重新开始、离开页面释放音频和联系入口。
+单元测试覆盖 WAV、分句、长问题合并、取消、队列、地址、错误脱敏、服务商迁移及参数差异。Electron 集成测试使用真实 AudioWorklet、合成音源和本机模拟服务，验证自动进入、原生窗口捕获排除和穿透、保护恢复、快捷键、提示栏开关、模型发现、连接测试与失败保留配置、自动/手动回答、历史和退出释放。
 
-未在用户的真实音频设备、真实面试声音或付费语音服务上做验收。体验时先确认系统有正在播放的声音、收音电平有变化，再检查转写和回答。背景音乐、过低音量和网络延迟会影响效果；可调节灵敏度或停顿时长，或使用人工确认模式。
+未在用户的真实音频设备、真实面试声音或付费语音服务上验收。背景音乐、音量和网络延迟影响识别和回答，可调整灵敏度、停顿时长或使用手动提交。
 
-接口依据：[OpenAI 官方语音转写文档](https://developers.openai.com/api/docs/guides/speech-to-text)、[Electron 系统声音采集与权限](https://www.electronjs.org/docs/latest/api/session#sessetdisplaymediarequesthandlerhandler-opts)。
+接口依据：[OpenAI](https://developers.openai.com/api/docs/guides/speech-to-text)、[Groq](https://console.groq.com/docs/speech-to-text)、[硅基流动](https://docs.siliconflow.cn/docs/api/audio-transcriptions-post)、[Together AI](https://docs.together.ai/docs/inference/transcription/overview)、[Electron 系统收音](https://www.electronjs.org/docs/latest/api/session#sessetdisplaymediarequesthandlerhandler-opts)。

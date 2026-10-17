@@ -27,6 +27,8 @@ function App() {
   const [page, setPage] = React.useState('chat');
   const [interviewSeed, setInterviewSeed] = React.useState(null);
   const [interviewKey, setInterviewKey] = React.useState(0);
+  const [interviewPassive, setInterviewPassive] = React.useState(false);
+  const interviewState = React.useRef(false);
   const [conversation, setConversation] = React.useState(fresh);
   const [draft, setDraft] = React.useState('');
   const [images, setImages] = React.useState([]);
@@ -64,16 +66,17 @@ function App() {
     mounted.current = true;
     Promise.all([api.settings.get().then(setSettings), reloadModels(), reloadHistory(), reloadDocuments(), api.screenshot.displays().then(setDisplays), api.localRecords.state(LOCAL_ACCOUNT).then(setRecordState)]).catch((error) => report(error.message));
     const unsubWritten = api.written.onChange((state) => { void actions.current.writtenChanged?.(state); });
+    const unsubInterview = api.interview.onWindowChange((state) => { void actions.current.interviewChanged?.(state); });
     const unsubSettings = api.settings.onChange((next) => { setSettings(next); setOpacityPreview(null); });
     const unsubOpacity = api.window.onOpacityPreviewed(setOpacityPreview);
     const unsubInteraction = api.window.onInteractionRecovered(() => { setThrough(false); setOpacityPreview(null); });
     const unsubHotkeys = api.hotkey.onTriggered((action) => actions.current.hotkey?.(action));
     const unsubReveal = api.window.onRevealRequested(async ({ token }) => { await paint(); await api.window.commitReveal(token); });
-    return () => { mounted.current = false; unsubWritten(); unsubSettings(); unsubOpacity(); unsubInteraction(); unsubHotkeys(); unsubReveal(); if (active.current) void api.personalModels.cancel(active.current); };
+    return () => { mounted.current = false; unsubWritten(); unsubInterview(); unsubSettings(); unsubOpacity(); unsubInteraction(); unsubHotkeys(); unsubReveal(); if (active.current) void api.personalModels.cancel(active.current); };
   }, []);
   React.useEffect(() => { if (follow.current) thread.current?.scrollTo({ top: thread.current.scrollHeight, behavior: 'auto' }); }, [conversation.messages, busy]);
   React.useEffect(() => { void api.hotkey.setAnswerScrollActive(['chat', 'exam', 'interview'].includes(page)); return () => { void api.hotkey.setAnswerScrollActive(false); }; }, [page]);
-  React.useEffect(() => { if (!writtenState.current) void api.window.setWorkMode(page === 'interview' ? 'interview' : focus ? 'exam' : 'idle'); }, [page, focus]);
+  React.useEffect(() => { if (!writtenState.current && !interviewState.current) void api.window.setWorkMode(page === 'interview' ? 'interview' : focus ? 'exam' : 'idle'); }, [page, focus]);
   React.useEffect(() => { if (page === 'history') void reloadHistory().catch((error) => report(error.message)); }, [page]);
   React.useEffect(() => { document.documentElement.dataset.appSurface = focus ? 'focus' : 'preparation'; }, [focus]);
 
@@ -152,6 +155,26 @@ function App() {
     if (state.token !== null && state.token !== undefined) await api.window.commitTaskSurface(state.token);
     if (state.error) report(state.error);
   }
+  async function interviewChanged(state) {
+    interviewState.current = state.active; setInterviewPassive(state.active);
+    setFocus(state.active); setThrough(state.active); setOpacityPreview(state.active ? state.opacity : null);
+    setPage(state.active ? 'interview' : 'settings');
+    await paint();
+    if (state.token !== null && state.token !== undefined) await api.window.commitTaskSurface(state.token);
+    if (state.error) report(state.error);
+  }
+  async function enterInterview(item) {
+    if (writtenState.current || interviewState.current || transition.current) return;
+    if (active.current || captureLease.current) { report('请先停止当前生成或等待截图完成。'); return; }
+    transition.current = true;
+    try {
+      if (!chooseModelSlot(models.profiles, false)) throw new Error('请先配置文字问答模型，再开始面试。');
+      const connection = await api.interview.connection();
+      if (!connection.profile) throw new Error('请先配置并保存语音识别模型，再开始面试。');
+      setInterviewSeed(item || null); setInterviewKey((value) => value + 1); setPage('interview');
+    } catch (error) { setPage('settings'); report(error.message); }
+    finally { transition.current = false; }
+  }
   async function enterWritten(item) {
     if (writtenState.current || transition.current) return;
     if (active.current || captureLease.current) { report('请先停止生成或等待截图完成。'); return; }
@@ -166,6 +189,7 @@ function App() {
     finally { transition.current = false; }
   }
   async function toggleFocus(next = !focus) {
+    if (interviewState.current) { await api.interview.stop(); return; }
     if (writtenState.current) { await api.written.exit(); return; }
     try {
       setFocus(next);
@@ -183,10 +207,11 @@ function App() {
     catch (error) { report(error.message); }
   }
   async function openConversation(id) {
-    try { const item = await api.workspace.read(id); if (item) { if (item.mode === 'written') { await enterWritten(item); return; } if (item.mode === 'interview') { setInterviewSeed(item); setInterviewKey((value) => value + 1); setPage('interview'); return; } follow.current = true; setConversation(item); setImages([]); setDraft(''); setPage('chat'); } }
+    try { const item = await api.workspace.read(id); if (item) { if (item.mode === 'written') { await enterWritten(item); return; } if (item.mode === 'interview') { await enterInterview(item); return; } follow.current = true; setConversation(item); setImages([]); setDraft(''); setPage('chat'); } }
     catch (error) { report(error.message); }
   }
   function selectPage(id) {
+    if (id === 'interview') { void enterInterview(); return; }
     if (id === 'interview' && (active.current || captureLease.current)) { report('请先停止当前生成或等待截图完成，再进入实时面试。'); return; }
     if (id === 'exam') { void enterWritten(); return; }
     if (id === 'chat' && conversation.mode === 'written') {
@@ -206,6 +231,7 @@ function App() {
   }
   actions.current = {
     writtenChanged,
+    interviewChanged,
     async sendCaptured(question, captured, epoch) {
       // Wait for state to settle so hotkey capture and manual send share one path.
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -214,11 +240,12 @@ function App() {
     },
     send,
     hotkey(action) {
+        if (page === 'interview' && action.startsWith('screenshot:')) return;
       if (action === 'screenshot:capture') void capture(true);
       else if (action === 'screenshot:captureScrolling') void capture(true, true);
       else if (action === 'exam:exit' || action === 'session:reset') { if (writtenState.current) void api.written.exit(); else void toggleFocus(false); }
       else if (action === 'window:toggleMouseThrough') {
-        if (writtenState.current) return;
+        if (writtenState.current || interviewState.current) return;
         const next = !through; setThrough(next); setOpacityPreview(null); void api.window.setInteractive(!next); void api.window.setFocusable(!next); void api.window.previewOpacity(next ? settings?.mouseThroughOpacity || .48 : settings?.opacity || 1);
       } else if (action.startsWith('answer:scroll')) {
         const root = thread.current; if (!root) return;
@@ -290,7 +317,7 @@ function App() {
   function renderSettings() {
     return h('div', { className: 'page-scroll' }, h('div', { className: 'page-heading' }, h('h1', null, '连接与设置'), h('p', null, '选择模型服务商，使用 API Key 或官方 ChatGPT 账号授权。')),
       h(DeveloperContact, { report }),
-      h(SpeechSettings, { settings, patchSettings, report }),
+      h(SpeechSettings, { settings, patchSettings, report, start: () => enterInterview() }),
       h(WrittenSettings, { settings, documents, patchSettings, start: () => enterWritten() }),
       h(ChatGptAccount, { report, reload: reloadModels }),
       h('div', { className: 'model-grid' }, h(ModelCard, { key: 'interview', slot: 'interview', title: '文字问答模型', snapshot: models, reload: reloadModels, report }), h(ModelCard, { key: 'screenshot', slot: 'screenshot', title: '截图分析模型', snapshot: models, reload: reloadModels, report })),
@@ -308,20 +335,20 @@ function App() {
       h('section', { className: 'panel capability-note' }, h('h3', null, '这个版本支持什么'), h('p', null, '支持实时面试系统收音、分句转写与自动回答，以及文字问答、笔试截图出答案、文字模拟面试、本机知识库和会话记录。手机远控尚未接入。'), h('p', { className: 'muted small' }, '社区版不依赖应用账号服务器。使用在线语音与回答模型时需联网；也可连接本机兼容服务。')));
   }
   const pages = [['chat', '✦', '工作台'], ['interview', '◉', '实时面试'], ['exam', '▣', '笔试模式'], ['knowledge', '▤', '本机知识库'], ['history', '◷', '会话记录'], ['settings', '⚙', '连接与设置']];
-  return h('div', { className: `local-app ${focus ? 'is-focus' : ''} ${writtenActive ? 'is-written-passive' : ''}`, 'data-local-app': true, 'data-written-active': writtenActive, style: { opacity: opacityPreview ?? (writtenActive ? normalizeWrittenOptions(settings?.writtenOptions).opacity : through ? settings?.mouseThroughOpacity || 0.48 : settings?.opacity || 1) } },
+  return h('div', { className: `local-app ${focus ? 'is-focus' : ''} ${writtenActive ? 'is-written-passive' : ''} ${interviewPassive ? 'is-interview-passive' : ''}`, 'data-local-app': true, 'data-written-active': writtenActive, 'data-interview-passive': interviewPassive, style: { opacity: opacityPreview ?? (writtenActive ? normalizeWrittenOptions(settings?.writtenOptions).opacity : interviewPassive ? settings?.interviewOptions?.opacity || .52 : through ? settings?.mouseThroughOpacity || 0.48 : settings?.opacity || 1) } },
     !focus && h('aside', { className: 'sidebar' }, h('div', { className: 'brand drag' }, h('img', { src: './assets/logo.svg', alt: '知跃 Logo' }), h('b', null, BRAND.name), h('span', null, '社区版')),
       button('＋ 新会话', () => { if (page === 'interview') { setInterviewSeed(null); setInterviewKey((value) => value + 1); return; } setConversation(fresh(page === 'exam' ? 'written' : 'chat')); setImages([]); setDraft(''); setPage(page === 'exam' ? 'exam' : 'chat'); }, { className: 'new-conversation', disabled: busy || capturing }),
       h('nav', null, ...pages.map(([id, icon, label]) => button(h(React.Fragment, null, h('span', null, icon), label), () => selectPage(id), { key: id, className: page === id ? 'nav-item active' : 'nav-item', 'data-page': id }))),
       h('div', { className: 'sidebar-footer' }, h('span', { className: 'local-badge' }, '● 社区免费版'), h('p', null, BRAND.tagline, h('br'), `开发者 · ${BRAND.developer}`))),
     h('main', { className: 'main-area' }, h('header', { className: 'topbar drag' },
-      h('div', null, h('strong', null, focus ? `${BRAND.name} · ${conversation.mode === 'written' ? '笔试' : '专注'}` : pages.find(([id]) => id === page)?.[2]), h('span', { className: 'topbar-caption' }, '你的模型 · 你的工作区')),
+      h('div', null, h('strong', null, focus ? `${BRAND.name} · ${interviewPassive ? '实时面试' : conversation.mode === 'written' ? '笔试' : '专注'}` : pages.find(([id]) => id === page)?.[2]), h('span', { className: 'topbar-caption' }, '你的模型 · 你的工作区')),
       h('div', { className: 'row no-drag' },
         h('label', { className: 'toolbar-opacity', title: '不透明度；Ctrl+Shift+[ / ] 调整', 'aria-label': '悬浮窗不透明度' },
           h('span', null, Math.round((opacityPreview ?? (through ? settings?.mouseThroughOpacity || .48 : settings?.opacity || 1)) * 100) + '%'),
           h('input', { type: 'range', min: .01, max: 1, step: .01, value: opacityPreview ?? (through ? settings?.mouseThroughOpacity || .48 : settings?.opacity || 1), onChange: (e) => patchSettings(through ? { mouseThroughOpacity: Number(e.target.value) } : { opacity: Number(e.target.value) }) })),
         button('隐藏', () => api.window.hide(), { title: `${settings?.hotkeys?.['window:show'] || '托盘'} 解除隐藏`, 'aria-label': '隐藏窗口' }), button(focus ? '退出专注' : '专注窗口', () => toggleFocus()), button('—', () => api.window.minimize(), { 'aria-label': '最小化' }), button('×', () => api.window.close(), { 'aria-label': '关闭窗口' }))),
       notice && h('div', { className: notice.success ? 'notice success' : 'notice', role: notice.success ? 'status' : 'alert' }, h('span', null, notice.text), button('×', () => setNotice(null), { 'aria-label': '关闭提示' })),
-      page === 'interview' ? h(LiveInterview, { key: interviewKey, seed: interviewSeed, settings, models, documents, report, configure: () => setPage('settings') }) : page === 'chat' || page === 'exam' ? renderChat() : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && !writtenActive && h(FocusResizeHandle));
+      page === 'interview' ? h(LiveInterview, { key: interviewKey, seed: interviewSeed, settings, models, documents, report, passive: interviewPassive, onStarted: interviewChanged, configure: () => setPage('settings') }) : page === 'chat' || page === 'exam' ? renderChat() : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && !writtenActive && !interviewPassive && h(FocusResizeHandle));
 }
 
 const surface = new URLSearchParams(window.location.search).get('surface');

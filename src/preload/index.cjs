@@ -23,8 +23,13 @@ const api = {
   interview: {
     connection: () => electron.ipcRenderer.invoke('interview:connection'),
     saveConnection: (value) => electron.ipcRenderer.invoke('interview:saveConnection', value),
+    discoverModels: (value) => electron.ipcRenderer.invoke('interview:discoverModels', value),
+    testConnection: (value) => electron.ipcRenderer.invoke('interview:testConnection', value),
     removeConnection: () => electron.ipcRenderer.invoke('interview:removeConnection'),
     start: () => electron.ipcRenderer.invoke('interview:start'),
+    enterWindow: (sessionId) => electron.ipcRenderer.invoke('interview:enterWindow', sessionId),
+    windowStatus: () => electron.ipcRenderer.invoke('interview:windowStatus'),
+    onWindowChange: (cb) => subscribe('interview:windowChanged', cb),
     stop: (sessionId) => electron.ipcRenderer.invoke('interview:stop', sessionId),
     transcribe: (value) => electron.ipcRenderer.invoke('interview:transcribe', value),
   },

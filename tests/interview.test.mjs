@@ -68,3 +68,19 @@ test('live interview prompts answer the question rather than simulate an intervi
   const result = buildLocalRequest({ question: '如何做缓存？', mode: 'interview', documents: [], prompt: '回答语言：中文' });
   assert.match(result.messages[0].content, /可以口述/); assert.match(result.messages[0].content, /不编造用户经历/); assert.doesNotMatch(result.messages[0].content, /每次只提出一个问题/);
 });
+import { SPEECH_PROVIDERS, inferSpeechProvider, isSpeechModel, speechModelChoices } from '../src/shared/speech-providers.mjs';
+test('speech presets migrate old profiles and keep recognition candidates separate from chat models', () => {
+  for (const p of SPEECH_PROVIDERS.filter(p => !['custom', 'local'].includes(p.id))) {
+    assert.equal(inferSpeechProvider(p.baseUrl), p.id);
+    assert.equal(normalizeSpeechProfile({ baseUrl: p.baseUrl, model: speechModelChoices(p.id)[0].id }).providerId, p.id);
+  }
+  assert.equal(inferSpeechProvider('http://127.0.0.1:8000/v1'), 'local');
+  assert.equal(inferSpeechProvider('https://custom.example/v1'), 'custom');
+  assert.equal(isSpeechModel('gpt-4o-mini-transcribe'), true); assert.equal(isSpeechModel('FunAudioLLM/SenseVoiceSmall'), true); assert.equal(isSpeechModel('gpt-4o'), false);
+  const opts = normalizeInterviewOptions({ opacity: 1, showShortcutHints: false }); assert.equal(opts.opacity, .85); assert.equal(opts.showShortcutHints, false);
+});
+test('SiliconFlow receives only its documented file/model fields', async () => {
+  await transcribeAudio({ providerId: 'siliconflow', baseUrl: 'https://api.siliconflow.cn/v1', model: 'FunAudioLLM/SenseVoiceSmall', language: 'zh', prompt: 'Redis' }, 'mock-test-key', new Uint8Array(3200), { fetchImpl: async (_url, init) => {
+    assert.deepEqual([...init.body.keys()].sort(), ['file', 'model']); return Response.json({ text: '测试' });
+  } });
+});
