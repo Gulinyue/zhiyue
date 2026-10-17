@@ -77,3 +77,6 @@ OAuth 令牌固定发送到官方 `https://api.openai.com/v1`，不能用于用�
 实际 Electron 冒烟测试读取 User32 的 WS_EX_TRANSPARENT、WS_EX_NOACTIVATE 和 GetWindowDisplayAffinity，验证两扇窗口的真实状态，也验证退出键缺失、隐藏退出、排除状态恢复、迟到截图丢弃与生成取消。模型响应和截图内容仍为模拟数据。
 
 Windows 10 2004 起支持真正排除；此 API 仅覆盖支持显示亲和性的系统捕获路径，不是对所有录屏方式的保证。参见 [Microsoft SetWindowDisplayAffinity](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowdisplayaffinity)。
+
+
+笔试定制中的“笔试模式显示快捷键提示栏”默认开启，关闭后不创建独立快捷键浮层，也不显示窗口内快捷键提示条及欢迎页按键提示；截图、滚动和退出快捷键保持有效。偏好保存到本机，下次进入继续使用。

@@ -765,7 +765,7 @@ function enterWrittenMode() {
       throw new Error('Windows 窗口捕获排除不可用，未进入笔试模式');
     }
     setAnswerScrollHotkeysActive(true);
-    setTaskShortcutOverlayMode('exam', true);
+    setTaskShortcutOverlayMode('exam', normalizeWrittenOptions(getSettings().writtenOptions).showShortcutHints);
     previewOpacity(normalizeWrittenOptions(getSettings().writtenOptions).opacity);
     if (process.platform === 'win32') writtenProtectionTimer = setInterval(() => {
       if (!writtenSessionActive || !win || win.isDestroyed()) return;
@@ -2477,6 +2477,7 @@ function registerIpc() {
   mainIpc.handle(IPC.settingsSet, (_e, s) => {
     setSettings(s);
     const next = getSettings();
+    if (writtenSessionActive) setTaskShortcutOverlayMode('exam', next.writtenOptions.showShortcutHints);
     syncAppTrayVisibility(next);
     broadcast(IPC.settingsChanged, next);
     registerHotkeys(() => {
@@ -2485,6 +2486,7 @@ function registerIpc() {
   });
   mainIpc.handle(IPC.settingsPatch, (_e, patch) => {
     const merged = patchSettings(patch);
+    if (writtenSessionActive && patch.writtenOptions) setTaskShortcutOverlayMode('exam', merged.writtenOptions.showShortcutHints);
     if (patch.hideTrayIcon !== void 0) syncAppTrayVisibility(merged);
     broadcast(IPC.settingsChanged, merged);
     if (patch.hotkeys || patch.doubleClickScreenshotEnabled !== void 0 || patch.quadrupleClickScreenshotEnabled !== void 0 || patch.longPressScreenshotEnabled !== void 0) registerHotkeys(() => {

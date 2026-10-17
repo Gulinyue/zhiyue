@@ -34,7 +34,7 @@
     "imports": []
   },
   "src/main/index.mjs": {
-    "lines": 3311,
+    "lines": 3313,
     "imports": [
       "./store/workspace.mjs",
       "./models/local-request.mjs",
@@ -376,7 +376,7 @@
     ]
   },
   "src/renderer/local/written-settings.mjs": {
-    "lines": 20,
+    "lines": 21,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../../shared/written-options.mjs"
@@ -456,7 +456,7 @@
     "imports": []
   },
   "src/shared/written-options.mjs": {
-    "lines": 16,
+    "lines": 17,
     "imports": []
   }
 }
