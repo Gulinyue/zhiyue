@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { commonjsGlobal, getDefaultExportFromCjs, jsxRuntimeExports } from "./react-icons-state.mjs";
 
 function ok$1() {

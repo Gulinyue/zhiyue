@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import Store from "electron-store";
 import { DEFAULT_SETTINGS, isStealthToggleAllowed, enforceDesktopSettingsPolicy } from "./default-settings.mjs";
 import { getSnapshot } from "./auth.mjs";

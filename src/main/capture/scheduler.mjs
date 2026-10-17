@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { CAPTURE_TIMEOUT } from "./constants.mjs";
 
 const DEFAULT_SCREENSHOT_CAPTURE_TIMEOUT_MS = 8e3;

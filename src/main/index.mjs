@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { registerWorkspaceIpc } from "./store/workspace.mjs";
 import { normalizeLocalModelRunInput } from "./models/local-request.mjs";
 import { isLoopbackHostname } from "./models/validation.mjs";
@@ -29,9 +28,10 @@ import { createPersonalModelAdapter, personalModelInvalidRequestMessage } from "
 import { PersonalModelAdapterError } from "./models/transport.mjs";
 import { chatgptAuth } from './models/chatgpt-runtime.mjs';
 import { ChatGptAuthError } from './models/chatgpt-auth.mjs';
+import { BRAND } from '../shared/brand.mjs';
 import { ChatGptPlanAdapter } from './models/chatgpt-adapter.mjs';
 import { discoverModels } from './models/native-adapters.mjs';
-
+// 知跃 / Zhiyue · Developed by gulinyue. See LICENSE.
 "use strict";
 const HOTKEY_ACTIONS = [
   "screenshot:capture",
@@ -105,7 +105,7 @@ function refreshMacFullscreenOverlay(owner, reason, platform = process.platform,
   } catch (error) {
     if (!warned.has(owner)) {
       warned.add(owner);
-      warn("[climb:mac-fullscreen] failed to refresh fullscreen Space membership", {
+      warn("[zhiyue:mac-fullscreen] failed to refresh fullscreen Space membership", {
         reason,
         error
       });
@@ -465,7 +465,7 @@ function setShortcutOverlayRendererProtectionReady(overlay, ready) {
       ready
     );
   } catch (error) {
-    console.warn("[climb:shortcut-overlay] renderer protection gate failed:", error);
+    console.warn("[zhiyue:shortcut-overlay] renderer protection gate failed:", error);
   }
 }
 function primeShortcutOverlayProtection(overlay, host, attempt = 1) {
@@ -498,7 +498,7 @@ function primeShortcutOverlayProtection(overlay, host, attempt = 1) {
   if (!moveShortcutOverlayOffscreen(overlay)) {
     shortcutProtectionPriming = false;
     console.error(
-      "[climb:shortcut-overlay] no verified off-screen priming bounds; overlay kept hidden"
+      "[zhiyue:shortcut-overlay] no verified off-screen priming bounds; overlay kept hidden"
     );
     return;
   }
@@ -506,7 +506,7 @@ function primeShortcutOverlayProtection(overlay, host, attempt = 1) {
   if (!isShortcutOverlayOutsideAllDisplays(overlay)) {
     shortcutProtectionPriming = false;
     console.error(
-      "[climb:shortcut-overlay] priming bounds became visible; overlay kept hidden"
+      "[zhiyue:shortcut-overlay] priming bounds became visible; overlay kept hidden"
     );
     return;
   }
@@ -532,7 +532,7 @@ function primeShortcutOverlayProtection(overlay, host, attempt = 1) {
     if (!protectionConfirmed) {
       overlay.hide();
       console.error(
-        "[climb:shortcut-overlay] capture exclusion could not be confirmed; overlay kept hidden",
+        "[zhiyue:shortcut-overlay] capture exclusion could not be confirmed; overlay kept hidden",
         { attempt, protectionMode }
       );
       return;
@@ -559,7 +559,7 @@ function failClosedShortcutOverlayProtection(overlay, reason, mode) {
   overlay.hide();
   setShortcutOverlayRendererProtectionReady(overlay, false);
   if (process.platform === "win32") moveShortcutOverlayOffscreen(overlay);
-  console.error("[climb:shortcut-overlay] capture exclusion lost; overlay hidden", {
+  console.error("[zhiyue:shortcut-overlay] capture exclusion lost; overlay hidden", {
     reason,
     mode
   });
@@ -684,7 +684,7 @@ function applyShortcutOverlayContentProtection(overlay) {
   try {
     overlay.setContentProtection(true);
   } catch (error) {
-    console.warn("[climb:shortcut-overlay] content protection failed:", error);
+    console.warn("[zhiyue:shortcut-overlay] content protection failed:", error);
   }
   const electronResult = getContentProtectionDirect(overlay);
   if (electronResult === "exclude") return electronResult;
@@ -722,7 +722,7 @@ function applyStrictMainWindowProtection(owner, reason) {
   try {
     owner.setContentProtection(true);
   } catch (error) {
-    console.warn("[climb:window] Electron content protection failed:", error);
+    console.warn("[zhiyue:window] Electron content protection failed:", error);
   }
   let mode = getContentProtectionDirect(owner);
   if (process.platform === "win32" && mode !== "exclude") {
@@ -734,7 +734,7 @@ function applyStrictMainWindowProtection(owner, reason) {
     applyContentProtectionDirect(owner, false);
   }
   if (reason !== "periodic") {
-    console.log("[climb:window] content protection applied:", mode, "via=", reason);
+    console.log("[zhiyue:window] content protection applied:", mode, "via=", reason);
   }
   return mode;
 }
@@ -752,7 +752,7 @@ function restoreMacProtectionHiddenWindow(owner, reason) {
   else owner.showInactive();
   refreshMacFullscreenOverlay(owner, `${reason}-after-restore`);
   if (windowSurface === "focus") showShortcutOverlay(owner);
-  console.log("[climb:mac-protection] protected window visibility recovered", { reason });
+  console.log("[zhiyue:mac-protection] protected window visibility recovered", { reason });
 }
 function setMainRendererUnavailableHandler(handler) {
   mainRendererUnavailableHandler = handler;
@@ -810,7 +810,7 @@ function clampPositionToVisibleDisplays(x, y, width, height) {
   const nx = Math.round(wa.x + (wa.width - width) / 2);
   const ny = Math.round(wa.y + 24);
   console.warn(
-    "[climb:window] saved position was off-screen; reset to primary work area:",
+    "[zhiyue:window] saved position was off-screen; reset to primary work area:",
     { from: { x, y }, to: { x: nx, y: ny } }
   );
   return { x: nx, y: ny, fixed: true };
@@ -888,7 +888,7 @@ function createMainWindow() {
   if (wantHarden) {
     hardenWindow(win);
   } else if (skipHarden) {
-    console.log("[climb:window] hardenWindow skipped (NO_HARDEN=1)");
+    console.log("[zhiyue:window] hardenWindow skipped (NO_HARDEN=1)");
   }
   const protectionOwner = win;
   const reapplyContentProtection = (reason) => {
@@ -943,7 +943,7 @@ function createMainWindow() {
       return true;
     },
     onError: (error, reason) => {
-      console.error("[climb:window] show() failed:", reason, error);
+      console.error("[zhiyue:window] show() failed:", reason, error);
     },
     onVisible: (reason) => {
       clearTimeout(safetyTimer);
@@ -951,7 +951,7 @@ function createMainWindow() {
       try {
         const b = win.getBounds();
         console.log(
-          "[climb:window] shown:",
+          "[zhiyue:window] shown:",
           reason,
           "bounds=",
           b,
@@ -966,7 +966,7 @@ function createMainWindow() {
       } catch {
       }
       if (skipContentProtection) {
-        console.log("[climb:window] content protection skipped (NO_CONTENT_PROTECTION=1)");
+        console.log("[zhiyue:window] content protection skipped (NO_CONTENT_PROTECTION=1)");
       }
     }
   });
@@ -990,7 +990,7 @@ function createMainWindow() {
     "did-fail-load",
     (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
       if (!isMainFrame) return;
-      console.error("[climb:window] did-fail-load", {
+      console.error("[zhiyue:window] did-fail-load", {
         errorCode,
         errorDescription,
         validatedURL
@@ -1267,7 +1267,7 @@ function prepareTaskWindowSurface(surface) {
     taskSurfaceRevealTimer = null;
     if (pendingTaskSurfaceRevealToken !== token || !win || win.isDestroyed()) return;
     console.error(
-      "[climb:window] renderer did not commit the task surface; window kept hidden",
+      "[zhiyue:window] renderer did not commit the task surface; window kept hidden",
       { token, surface }
     );
     failClosedForRendererLoss(win, "task-surface-commit-timeout");
@@ -1474,14 +1474,14 @@ function createAppTray() {
   const image = electron.nativeImage.createFromPath(appIconPath()).resize({ width: 24, height: 24 });
   if (process.platform === "darwin") image.setTemplateImage(true);
   tray = new electron.Tray(image);
-  tray.setToolTip("Climb");
+  tray.setToolTip(BRAND.name);
   tray.setContextMenu(electron.Menu.buildFromTemplate([
     {
-      label: "显示 Climb",
+      label: `显示${BRAND.name}`,
       click: () => showMainWindowInteractive()
     },
     {
-      label: "隐藏 Climb",
+      label: `隐藏${BRAND.name}`,
       click: () => hideWindow()
     },
     { type: "separator" },
@@ -1944,7 +1944,7 @@ function registerHotkeys(handler) {
       try {
         ok = electron.globalShortcut.register(accelerator, () => onTrigger(action));
       } catch (error) {
-        console.warn("[climb:hotkey] failed to register global shortcut", {
+        console.warn("[zhiyue:hotkey] failed to register global shortcut", {
           action,
           accelerator,
           error
@@ -1955,7 +1955,7 @@ function registerHotkeys(handler) {
         registeredAccelerators.push(accelerator);
         registeredActions.add(action);
       } else {
-        console.warn("[climb:hotkey] failed to register global shortcut", {
+        console.warn("[zhiyue:hotkey] failed to register global shortcut", {
           action,
           accelerator
         });
@@ -1999,7 +1999,7 @@ function getHotkeyRegistrationStatus(prospectiveMode) {
       try {
         electron.globalShortcut.unregister(accelerator);
       } catch (error) {
-        console.warn("[climb:hotkey] failed to release probed task-scoped shortcut", {
+        console.warn("[zhiyue:hotkey] failed to release probed task-scoped shortcut", {
           accelerator,
           error
         });
@@ -2117,7 +2117,7 @@ function probeAccelerators(action, accelerators, retainedAccelerators) {
       ok = electron.globalShortcut.register(accelerator, () => {
       });
     } catch (error) {
-      console.warn("[climb:hotkey] failed to probe task-scoped shortcut", {
+      console.warn("[zhiyue:hotkey] failed to probe task-scoped shortcut", {
         action,
         accelerator,
         error
@@ -2141,7 +2141,7 @@ function syncTaskScopedBareHotkeys() {
       try {
         ok = electron.globalShortcut.register(accelerator, () => onTrigger(action));
       } catch (error) {
-        console.warn("[climb:hotkey] failed to register task-scoped bare shortcut", {
+        console.warn("[zhiyue:hotkey] failed to register task-scoped bare shortcut", {
           action,
           accelerator,
           error
@@ -2153,7 +2153,7 @@ function syncTaskScopedBareHotkeys() {
         taskScopedBareRegisteredActions.add(action);
         registeredActions.add(action);
       } else {
-        console.warn("[climb:hotkey] failed to register task-scoped bare shortcut", {
+        console.warn("[zhiyue:hotkey] failed to register task-scoped bare shortcut", {
           action,
           accelerator
         });
@@ -2181,7 +2181,7 @@ function syncMobileViewportHotkeys() {
       try {
         ok = electron.globalShortcut.register(accelerator, () => onTrigger(action));
       } catch (error) {
-        console.warn("[climb:hotkey] failed to register mobile viewport shortcut", {
+        console.warn("[zhiyue:hotkey] failed to register mobile viewport shortcut", {
           action,
           accelerator,
           error
@@ -2193,7 +2193,7 @@ function syncMobileViewportHotkeys() {
         mobileViewportRegisteredActions.add(action);
         registeredActions.add(action);
       } else {
-        console.warn("[climb:hotkey] failed to register mobile viewport shortcut", {
+        console.warn("[zhiyue:hotkey] failed to register mobile viewport shortcut", {
           action,
           accelerator
         });
@@ -2221,7 +2221,7 @@ function syncInterviewContextHotkeys() {
       try {
         ok = electron.globalShortcut.register(accelerator, () => onTrigger(action));
       } catch (error) {
-        console.warn("[climb:hotkey] failed to register interview context shortcut", {
+        console.warn("[zhiyue:hotkey] failed to register interview context shortcut", {
           action,
           accelerator,
           error
@@ -2233,7 +2233,7 @@ function syncInterviewContextHotkeys() {
         interviewContextRegisteredActions.add(action);
         registeredActions.add(action);
       } else {
-        console.warn("[climb:hotkey] failed to register interview context shortcut", {
+        console.warn("[zhiyue:hotkey] failed to register interview context shortcut", {
           action,
           accelerator
         });
@@ -2261,7 +2261,7 @@ function syncAnswerScrollHotkeys() {
       try {
         ok = electron.globalShortcut.register(accelerator, () => onTrigger(action));
       } catch (error) {
-        console.warn("[climb:hotkey] failed to register answer scroll shortcut", {
+        console.warn("[zhiyue:hotkey] failed to register answer scroll shortcut", {
           action,
           accelerator,
           error
@@ -2273,7 +2273,7 @@ function syncAnswerScrollHotkeys() {
         answerScrollRegisteredActions.add(action);
         registeredActions.add(action);
       } else {
-        console.warn("[climb:hotkey] failed to register answer scroll shortcut", {
+        console.warn("[zhiyue:hotkey] failed to register answer scroll shortcut", {
           action,
           accelerator
         });
@@ -2614,7 +2614,7 @@ function registerIpc() {
       return { url, count, recovery: getScreenshotRecoveryState(), ...scroll ? { urls } : {} };
     } catch (error) {
       const normalized = normalizeScreenshotCaptureError(error);
-      console.error("[climb:screenshot] capture failed", {
+      console.error("[zhiyue:screenshot] capture failed", {
         code: normalized.code,
         message: error instanceof Error ? error.message : String(error)
       });
@@ -2628,7 +2628,7 @@ function registerIpc() {
   });
   mainIpc.handle(IPC.screenshotProbe, async (_event, rawDisplayId) => {
     if (shouldStubTaskSurfaceQaScreenshotProbe()) {
-      console.log("[climb:qa] deterministic screenshot preflight accepted");
+      console.log("[zhiyue:qa] deterministic screenshot preflight accepted");
       return { ok: true, recovery: getScreenshotRecoveryState() };
     }
     const displayId = typeof rawDisplayId === "string" && rawDisplayId.trim() ? rawDisplayId.trim() : void 0;
@@ -2782,8 +2782,8 @@ function registerIpc() {
     if (!url) return;
     throw new Error("本地版没有云端账户门户。");
   });
-  mainIpc.on(IPC.logInfo, (_e, ...args) => console.log("[climb:ui]", ...args));
-  mainIpc.on(IPC.logError, (_e, ...args) => console.error("[climb:ui]", ...args));
+  mainIpc.on(IPC.logInfo, (_e, ...args) => console.log("[zhiyue:ui]", ...args));
+  mainIpc.on(IPC.logError, (_e, ...args) => console.error("[zhiyue:ui]", ...args));
   const settings = getSettings();
   if (settings.disableClipboard) {
     electron.clipboard.writeText.bind(electron.clipboard);
@@ -3176,7 +3176,7 @@ if (!gotLock) {
     try {
       const cfgPath = path.join(electron.app.getPath("userData"), "config.json");
       getSettings();
-      console.log("[climb:boot] config file:", cfgPath);
+      console.log("[zhiyue:boot] config file:", cfgPath);
     } catch {
     }
     electron.session.defaultSession.setDisplayMediaRequestHandler(

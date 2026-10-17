@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { jsxRuntimeExports, reactExports, p$1 } from "../vendor/react-icons-state.mjs";
 import { DEFAULT_VOICE_LLM_MAX_TOKENS, normalizeVoiceLlmMaxTokens, MIN_VOICE_LLM_MAX_TOKENS, MAX_VOICE_LLM_MAX_TOKENS } from "../stores/settings.mjs";
 import { KeyCombo } from "../components/key-combo.mjs";

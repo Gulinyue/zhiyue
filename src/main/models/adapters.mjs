@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { PERSONAL_MODEL_PROVIDER, validatePersonalModelProfile, validatePersonalModelCredentialInput, personalModelChatCompletionsEndpoint, validatePersonalModelRequest, isDashScopeQwen38PersonalModel, personalModelResponsesEndpoint, MAX_PERSONAL_MODEL_SOURCES } from "./validation.mjs";
 import { createPersonalModelAbortScope, assertPersonalModelResponseOk, readResponseJson, createPersonalModelStreamAbortScope, readSseJson, PersonalModelAdapterError } from "./transport.mjs";
 import { NativeModelAdapter, modelHeaders } from './native-adapters.mjs';

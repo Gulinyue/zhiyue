@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 
 
 const WINDOW_POSITION_PERSIST_DEBOUNCE_MS = 350;

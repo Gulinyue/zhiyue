@@ -45,3 +45,21 @@ test('workspace stores text messages without API keys, raw screenshots or extra 
   assert.throws(() => normalizeConversation({ ...saved, id: '../escape' }));
   assert.throws(() => normalizeConversation({ ...saved, messages: Array(201).fill(saved.messages[0]) }));
 });
+
+test('written screenshots request direct answers and keep previous questions out of a new image request', () => {
+  const history = [{ role: 'user', text: '上一题' }, { role: 'assistant', text: '上一题答案' }];
+  const request = buildLocalRequest({ question: '请解答本题', mode: 'written', images: ['data:image/png;base64,aGVsbG8='], history });
+  assert.match(request.messages[0].content, /笔试模式/);
+  assert.match(request.messages[0].content, /先给出明确答案/);
+  assert.match(request.messages[0].content, /时间与空间复杂度/);
+  assert.equal(request.messages.length, 2);
+  assert.doesNotMatch(JSON.stringify(request), /上一题/);
+  const followup = buildLocalRequest({ question: '解释复杂度', mode: 'written', history });
+  assert.equal(followup.messages.length, 4);
+});
+
+test('written mode and its completed answer survive workspace normalization', () => {
+  const saved = normalizeWorkspace([{ id: 'written-1', title: '笔试题', updatedAt: 1, mode: 'written', messages: [{ id: 'answer', role: 'assistant', text: '答案 B', status: 'completed' }] }]);
+  assert.equal(saved[0].mode, 'written'); assert.equal(saved[0].messages[0].text, '答案 B');
+  assert.throws(() => normalizeConversation({ ...saved[0], mode: 'unrecognized' }));
+});

@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { validatePersonalModelCredentialInput, normalizePersonalModelBaseUrl, createDefaultPersonalModelProfile, DEFAULT_PERSONAL_MODEL_BASE_URL, LEGACY_GEMINI_OPENAI_BASE_URL, DEFAULT_PERSONAL_MODEL_ID } from "./validation.mjs";
 import Store from "electron-store";
 import * as electron from "electron";

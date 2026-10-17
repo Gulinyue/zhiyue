@@ -1,5 +1,6 @@
 import { React } from '../vendor/react-icons-state.mjs';
 import { WINDOW_SHORTCUTS } from '../../shared/window-shortcuts.mjs';
+import { BRAND } from '../../shared/brand.mjs';
 const h = React.createElement;
 
 export function LocalShortcutOverlay() {
@@ -23,7 +24,7 @@ export function LocalShortcutOverlay() {
   const gated = new URLSearchParams(window.location.search).get('captureProtection') === 'required';
   if (gated && !ready) return null;
   return h('div', { className: 'local-shortcuts', ref: root, style: { opacity } },
-    h('strong', null, 'Climb Local · 快捷键'),
-    ...WINDOW_SHORTCUTS.filter(([, action]) => ['window:hide', 'window:show', 'window:moveUp', 'window:moveDown', 'answer:scrollUp', 'answer:scrollDown', 'window:opacityDown', 'window:opacityUp', 'window:toggleMouseThrough', 'exam:exit'].includes(action)).map(([label, action]) =>
+    h('strong', null, `${BRAND.name} · 快捷键`),
+    ...WINDOW_SHORTCUTS.filter(([, action]) => ['screenshot:capture', 'screenshot:captureScrolling', 'window:hide', 'window:show', 'window:moveUp', 'window:moveDown', 'answer:scrollUp', 'answer:scrollDown', 'window:opacityDown', 'window:opacityUp', 'window:toggleMouseThrough', 'exam:exit'].includes(action)).map(([label, action]) =>
       h('div', { key: action }, h('span', null, label), h('kbd', null, hotkeys[action] || '未设置'))));
 }

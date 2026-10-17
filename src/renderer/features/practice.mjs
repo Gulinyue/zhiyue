@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { getResume, parsePracticeResumeDocument, confirmParsedResume, listPracticeJobs, getPracticeJob, matchPracticeJobs, createPracticeJob, updatePracticeJob, deletePracticeJob, discoverPracticeJobs, recordPracticeJobRecommendationClick, recordPracticeJobSelection, readPracticeSpeechVoicePreference, createPracticeQuestionSpeechGate, resolvePracticeSpeechVoice, getPracticeSession, listPracticeSpeechVoices, startPracticeSpeechPlayback, requestPracticeSessionTurnSpeech, requestPracticeSpeechPreview, normalizeResumeProfile, parsedJdToCreateInput, ensureStartedPracticeSession, createPracticeSession, startPracticeSession, streamPracticeSessionAgentStep, finalizePracticeSessionTurn, abandonPracticeSession, finishPracticeSession, requestPracticeClosingSpeech, persistPracticeReportChoice, requestPracticeSessionReport, connectAsrStream, startPcmCapture, resolvePracticeAgentPublicWaitStage, practiceAgentWaitMessages, PRACTICE_AGENT_WAIT_ROTATION_MS, practiceAgentWaitMessage, listPracticeSessions } from "../services/task-runtime.mjs";
 import { reactExports, jsxRuntimeExports, s$4, m, s$3, s$9, n$2, f, n, i$3, s$8, a$1, n$1, h$1, n$6, s$a, s$1, c$1, c$3, i$4, i$2, m$1, n$3, n$4, i$1, c$2, m$3, s$7 } from "../vendor/react-icons-state.mjs";
 
@@ -3835,7 +3834,7 @@ function practiceSpeechFailureReason(failure2) {
   return "云端语音请求失败";
 }
 function reportPracticeSpeechFailure(purpose, failure2, usingLocalFallback) {
-  console.warn("[climb:practice-tts] cloud playback degraded", {
+  console.warn("[zhiyue:practice-tts] cloud playback degraded", {
     purpose,
     stage: failure2.stage,
     code: failure2.code,

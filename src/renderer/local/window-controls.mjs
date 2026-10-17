@@ -22,7 +22,7 @@ export function HotkeySettings({ settings, patchSettings, report }) {
     h('p', { className: 'muted small' }, '修改后点击应用。使用 Ctrl、Shift、Alt、Win 加按键；内容滚动在工作台页面生效，鼠标穿透时也能使用。'),
     h('div', { className: 'hotkey-grid' }, ...WINDOW_SHORTCUTS.map(([label, action]) => h('label', { className: 'hotkey-row', key: action },
       h('span', null, label), h('input', { 'aria-label': label, value: draft[action] || '', placeholder: '未设置', onChange: (e) => setDraft({ ...draft, [action]: e.target.value }), spellCheck: false }),
-      h('span', { className: status[action] ? 'hotkey-ok' : 'muted small' }, status[action] ? '已注册' : action.startsWith('answer:') ? '工作台启用' : action.startsWith('screenshot:') || action === 'exam:exit' ? '专注时启用' : '未注册')))),
+      h('span', { className: status[action] ? 'hotkey-ok' : 'muted small' }, status[action] ? '已注册' : action.startsWith('answer:') ? '问答页启用' : action.startsWith('screenshot:') ? '笔试/专注启用' : action === 'exam:exit' ? '专注时启用' : '未注册')))),
     h('button', { type: 'button', onClick: () => save().catch((e) => report(e.message)) }, '应用快捷键'));
 }
 

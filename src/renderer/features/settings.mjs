@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { getAcceleratorsForAction } from "../stores/session.mjs";
 import { React, jsxRuntimeExports } from "../vendor/react-icons-state.mjs";
 import { DEFAULT_HOTKEYS, useSettings, isStealthToggleAllowed, MIN_WINDOW_OPACITY } from "../stores/settings.mjs";

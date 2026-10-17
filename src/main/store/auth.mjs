@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import Store from "electron-store";
 import * as electron from "electron";
 import * as node_crypto from "node:crypto";

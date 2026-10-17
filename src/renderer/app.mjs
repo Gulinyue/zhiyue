@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { getGatewayAccessToken, refreshGatewaySession, CLIMB_DESKTOP_VERSION, backendWsUrl, CLIENT_UPDATE_RELEASE_NOTES, publicFetch, CLIENT_UPDATE_DOWNLOAD_URL, CLIENT_UPDATE_NOTICE_MESSAGE, setClientVersionNoticeHandler, buildClientVersionNoticeFromPolicy, ClientUpdateRequiredError, SubscriptionRequiredError, AuthRequiredError, gatewayUnavailableMessageFor, GatewayUnavailableError, toGatewayUnavailableError, CLIENT_UPDATE_FALLBACK_VERSION } from "./services/gateway.mjs";
 import { parseRemoteControlServerFrame, useRemoteControl, desktopLabel, acceptAccountConnection, rejectPendingPairRequest, approvePendingPairRequest, cancelActiveScreenshotCommand, handleRemoteControlPowerState, stopRemoteControl, startRemoteControl, abortCurrentStream, endAllUsageSessions, pauseUsageSession, setVoiceUsageConnectionBlocked, retryUsageSessionConnection, setUsageSessionConnectionHandler, TASK_RECONNECT_MESSAGE, isTaskConnectionRecovering, setUsageSessionFailureHandler, startListening, stopListening, requestMobileViewportScroll, createPerfTrace, createDesktopScreenshotAnalysisMirror, executeLocalCaptureAndAnalyze, executeQueuedScreenshotAnalysis, clearInterviewContext, endUsageSession, resendHistoryToLLM, beginUsageSession } from "./services/task-runtime.mjs";
 import { useSettings, normalizeWindowOpacity, resolveWindowOpacity, DEFAULT_SETTINGS } from "./stores/settings.mjs";
@@ -686,7 +685,7 @@ const App = () => {
     }).catch((err) => {
       if (cancelled) return;
       if (!(err instanceof ClientUpdateRequiredError)) {
-        window.api.log.error("[climb:version] startup check failed", err);
+        window.api.log.error("[zhiyue:version] startup check failed", err);
       }
     });
     return () => {
@@ -715,7 +714,7 @@ const App = () => {
         screenshotQueueRef.current = arr;
         setScreenshotCount(arr.length);
       }).catch((error2) => {
-        window.api.log.error("[climb:screenshot] failed to synchronize queue", error2);
+        window.api.log.error("[zhiyue:screenshot] failed to synchronize queue", error2);
       });
     });
     const sync = ++screenshotQueueSyncRef.current;
@@ -724,7 +723,7 @@ const App = () => {
       screenshotQueueRef.current = arr;
       setScreenshotCount(arr.length);
     }).catch((error2) => {
-      window.api.log.error("[climb:screenshot] failed to load queue", error2);
+      window.api.log.error("[zhiyue:screenshot] failed to load queue", error2);
     });
     return off;
   }, [setScreenshotCount]);
@@ -760,7 +759,7 @@ const App = () => {
     session.setStreaming(false);
     session.setError(null);
     void window.api.screenshot.clear().catch((error2) => {
-      window.api.log.error("[climb:screenshot] failed to clear queue after authentication change", error2);
+      window.api.log.error("[zhiyue:screenshot] failed to clear queue after authentication change", error2);
     });
   }, [authStatus, authEmail]);
   reactExports.useEffect(() => {
@@ -868,7 +867,7 @@ const App = () => {
           await window.api.window.commitTaskSurface(revealToken);
         }
       } catch (error2) {
-        window.api.log.error("[climb:surface] failed to prepare task surface", error2);
+        window.api.log.error("[zhiyue:surface] failed to prepare task surface", error2);
       }
     })();
     return () => {
@@ -1146,7 +1145,7 @@ const App = () => {
           try {
             exitTransitionToken = await window.api.window.beginTaskLaunch();
           } catch (error2) {
-            window.api.log.error("[climb:task-exit] failed to hide focus surface", error2);
+            window.api.log.error("[zhiyue:task-exit] failed to hide focus surface", error2);
           }
           advanceRuntimeGeneration("task exited");
           cancelInterviewStartupAndListening();
@@ -1166,7 +1165,7 @@ const App = () => {
               localStateRestored = true;
             },
             reportError: (operation, error2) => {
-              window.api.log.error(`[climb:task-exit] failed to ${operation}`, error2);
+              window.api.log.error(`[zhiyue:task-exit] failed to ${operation}`, error2);
             }
           });
         } finally {
@@ -1175,7 +1174,7 @@ const App = () => {
               await window.api.window.cancelTaskLaunch(exitTransitionToken);
             } catch (error2) {
               try {
-                window.api.log.error("[climb:task-exit] failed to restore focus surface", error2);
+                window.api.log.error("[zhiyue:task-exit] failed to restore focus surface", error2);
               } catch {
               }
             }
@@ -1491,7 +1490,7 @@ const ClientVersionNoticeDialog = ({ notice, onClose }) => {
         result.message ?? "安装包已下载到您的「下载」文件夹，文件资源管理器已自动打开。请关闭本应用后，双击安装包完成更新。"
       );
     } catch (err) {
-      window.api.log.error("[climb:version] update download failed", err);
+      window.api.log.error("[zhiyue:version] update download failed", err);
       setDownloadState("fallback");
       setDownloadMessage("安装包下载失败，请前往官网下载最新版本。");
     }

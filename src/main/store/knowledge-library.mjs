@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import * as promises from "node:fs/promises";
 import * as node_crypto from "node:crypto";
 import * as path from "node:path";

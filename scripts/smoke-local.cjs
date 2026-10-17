@@ -99,6 +99,9 @@ app.whenReady().then(async () => {
   const click = (label) => evaluate(`(() => { const button = [...document.querySelectorAll('button')].find(el => el.textContent.trim() === ${JSON.stringify(label)}); if (!button) throw new Error('Button missing'); button.click(); })()`);
   const setValue = (selector, value) => evaluate(`(() => { const input = document.querySelector(${JSON.stringify(selector)}); if (!input) throw new Error('Input missing'); Object.getOwnPropertyDescriptor(input.constructor.prototype, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
   await waitFor(() => evaluate('!!document.querySelector("[data-local-app]")'), 'local workspace');
+  assert.equal(await evaluate('document.title'), '知跃');
+  assert.equal(await evaluate('window.api.runtime.brand.developer'), 'gulinyue');
+  await waitFor(() => evaluate('document.querySelector(".brand img")?.naturalWidth > 0'), 'new brand logo');
   await new Promise((resolve) => setTimeout(resolve, 200));
   assert.equal(await evaluate('!!document.querySelector("input[type=password]")'), false);
   assert.equal(await evaluate('window.api.auth.status().then(s => s.local)'), true);
@@ -225,6 +228,32 @@ app.whenReady().then(async () => {
   const restore = await evaluate('window.api.window.setTaskSurface("idle", "preparation", false)');
   assert.equal(await evaluate(`window.api.window.commitTaskSurface(${restore})`), true);
   assert.equal(await evaluate('window.api.app.downloadUpdate("https://workclimb.top/old.exe").then(r => r.status)'), 'unavailable');
+  // A dedicated written-test session must enter exam mode without entering the
+  // floating window first. Invoke the real registered capture shortcut.
+  await evaluate('document.querySelector("[data-page=exam]").click()');
+  await waitFor(() => evaluate('!!document.querySelector(".written-toolbar") && !!document.querySelector(".written-welcome")'), 'written mode page');
+  await waitFor(() => evaluate('window.api.hotkey.status().then(s=>s["screenshot:capture"])'), 'written capture shortcut registration');
+  const writtenRequestCount = requests.length;
+  trigger('Control+Q'); trigger('Control+Q');
+  await waitFor(() => requests.length > writtenRequestCount, 'written screenshot directly submits');
+  await waitFor(() => evaluate('document.querySelector(".chat-thread")?.innerText.includes("已收到图片") && ![...document.querySelectorAll("button")].some(el=>el.textContent === "停止生成")'), 'written answer');
+  assert.equal(requests.length, writtenRequestCount + 1, 'Rapid repeated capture shortcuts submit once');
+  assert.match(requests.at(-1).body.messages[0].content, /笔试模式/);
+  assert.match(requests.at(-1).body.messages[0].content, /先给出明确答案/);
+  const writtenRecord = await evaluate('window.api.workspace.list().then(items=>items.find(item=>item.mode==="written"))');
+  assert.ok(writtenRecord);
+  fs.writeFileSync(path.join(artifacts, 'zhiyue-written.png'), (await main.webContents.capturePage()).toPNG());
+  const beforeScrollCapture = requests.length;
+  trigger('Control+Shift+Q');
+  await waitFor(() => requests.length > beforeScrollCapture, 'written scrolling screenshot submits');
+  await waitFor(() => evaluate('![...document.querySelectorAll("button")].some(el=>el.textContent === "停止生成")'), 'written scrolling answer');
+  assert.equal(requests.at(-1).body.messages.length, 2, 'New screenshots do not reuse the previous question');
+  await evaluate('document.querySelector("[data-page=history]").click()');
+  await waitFor(() => evaluate('[...document.querySelectorAll(".history-item")].some(el=>el.innerText.includes("笔试模式"))'), 'written history label');
+  await evaluate('[...document.querySelectorAll(".history-item")].find(el=>el.innerText.includes("笔试模式")).querySelector("button.primary").click()');
+  await waitFor(() => evaluate('!!document.querySelector(".written-toolbar") && document.querySelector(".chat-thread").innerText.includes("已收到图片")'), 'reopened written answer');
+  await evaluate('document.querySelector("[data-page=settings]").click()');
+  await waitFor(() => evaluate('document.querySelector("[data-about-brand]")?.innerText.includes("gulinyue")'), 'developer attribution');
   for (const [providerId, apiMode] of [['anthropic', 'anthropic'], ['google', 'gemini']]) {
     const input = { slot: 'interview', providerId, apiMode, model: 'smoke-model', baseUrl: baseUrl + '/v1' };
     const models = await evaluate(`window.api.personalModels.discover(${JSON.stringify(input)})`);

@@ -1,36 +1,36 @@
 {
   "src/main/bootstrap.cjs": {
-    "lines": 13,
+    "lines": 16,
     "imports": []
   },
   "src/main/capture/constants.mjs": {
-    "lines": 19,
+    "lines": 18,
     "imports": []
   },
   "src/main/capture/scheduler.mjs": {
-    "lines": 215,
+    "lines": 214,
     "imports": [
       "./constants.mjs"
     ]
   },
   "src/main/capture/scrolling.mjs": {
-    "lines": 252,
+    "lines": 251,
     "imports": [
       "./constants.mjs"
     ]
   },
   "src/main/capture/source-selection.mjs": {
-    "lines": 31,
+    "lines": 30,
     "imports": []
   },
   "src/main/hotkeys/gestures.mjs": {
-    "lines": 375,
+    "lines": 374,
     "imports": [
       "node:perf_hooks"
     ]
   },
   "src/main/hotkeys/modes.mjs": {
-    "lines": 97,
+    "lines": 96,
     "imports": []
   },
   "src/main/index.mjs": {
@@ -66,6 +66,7 @@
       "./models/transport.mjs",
       "./models/chatgpt-runtime.mjs",
       "./models/chatgpt-auth.mjs",
+      "../shared/brand.mjs",
       "./models/chatgpt-adapter.mjs",
       "./models/native-adapters.mjs"
     ]
@@ -75,7 +76,7 @@
     "imports": []
   },
   "src/main/models/adapters.mjs": {
-    "lines": 664,
+    "lines": 663,
     "imports": [
       "./validation.mjs",
       "./transport.mjs",
@@ -90,10 +91,11 @@
     ]
   },
   "src/main/models/chatgpt-auth.mjs": {
-    "lines": 164,
+    "lines": 165,
     "imports": [
       "node:http",
-      "node:crypto"
+      "node:crypto",
+      "../../shared/brand.mjs"
     ]
   },
   "src/main/models/chatgpt-runtime.mjs": {
@@ -105,7 +107,7 @@
     ]
   },
   "src/main/models/credentials.mjs": {
-    "lines": 353,
+    "lines": 352,
     "imports": [
       "./validation.mjs",
       "electron-store",
@@ -126,17 +128,17 @@
     ]
   },
   "src/main/models/transport.mjs": {
-    "lines": 363,
+    "lines": 362,
     "imports": []
   },
   "src/main/models/validation.mjs": {
-    "lines": 339,
+    "lines": 338,
     "imports": [
       "../../shared/model-providers.mjs"
     ]
   },
   "src/main/security/display-affinity.mjs": {
-    "lines": 126,
+    "lines": 125,
     "imports": []
   },
   "src/main/security/external-url.mjs": {
@@ -144,7 +146,7 @@
     "imports": []
   },
   "src/main/security/mac-protection.mjs": {
-    "lines": 47,
+    "lines": 46,
     "imports": []
   },
   "src/main/security/token-codec.mjs": {
@@ -152,7 +154,7 @@
     "imports": []
   },
   "src/main/store/auth.mjs": {
-    "lines": 59,
+    "lines": 58,
     "imports": [
       "electron-store",
       "electron",
@@ -162,11 +164,11 @@
     ]
   },
   "src/main/store/default-settings.mjs": {
-    "lines": 286,
+    "lines": 285,
     "imports": []
   },
   "src/main/store/knowledge-library.mjs": {
-    "lines": 144,
+    "lines": 143,
     "imports": [
       "node:fs/promises",
       "node:crypto",
@@ -174,7 +176,7 @@
     ]
   },
   "src/main/store/local-records.mjs": {
-    "lines": 675,
+    "lines": 674,
     "imports": [
       "node:fs",
       "node:crypto",
@@ -184,7 +186,7 @@
     ]
   },
   "src/main/store/settings.mjs": {
-    "lines": 58,
+    "lines": 57,
     "imports": [
       "electron-store",
       "./default-settings.mjs",
@@ -192,8 +194,10 @@
     ]
   },
   "src/main/store/workspace-schema.mjs": {
-    "lines": 15,
-    "imports": []
+    "lines": 17,
+    "imports": [
+      "../../shared/conversation-modes.mjs"
+    ]
   },
   "src/main/store/workspace.mjs": {
     "lines": 20,
@@ -203,7 +207,7 @@
     ]
   },
   "src/main/updater/download.mjs": {
-    "lines": 158,
+    "lines": 157,
     "imports": [
       "node:fs/promises",
       "electron",
@@ -224,27 +228,27 @@
     ]
   },
   "src/main/windows/geometry.mjs": {
-    "lines": 61,
+    "lines": 60,
     "imports": []
   },
   "src/main/windows/initial-reveal.mjs": {
-    "lines": 40,
+    "lines": 39,
     "imports": []
   },
   "src/main/windows/position.mjs": {
-    "lines": 40,
+    "lines": 39,
     "imports": []
   },
   "src/main/windows/profiles.mjs": {
-    "lines": 30,
+    "lines": 29,
     "imports": []
   },
   "src/preload/index.cjs": {
-    "lines": 158,
+    "lines": 160,
     "imports": []
   },
   "src/renderer/app.mjs": {
-    "lines": 1824,
+    "lines": 1823,
     "imports": [
       "./services/gateway.mjs",
       "./services/task-runtime.mjs",
@@ -258,13 +262,13 @@
     ]
   },
   "src/renderer/components/key-combo.mjs": {
-    "lines": 11,
+    "lines": 10,
     "imports": [
       "../vendor/react-icons-state.mjs"
     ]
   },
   "src/renderer/features/auth.mjs": {
-    "lines": 746,
+    "lines": 745,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../services/gateway.mjs",
@@ -272,7 +276,7 @@
     ]
   },
   "src/renderer/features/conversation.mjs": {
-    "lines": 540,
+    "lines": 539,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../vendor/markdown.mjs",
@@ -280,7 +284,7 @@
     ]
   },
   "src/renderer/features/local-records.mjs": {
-    "lines": 1361,
+    "lines": 1360,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../stores/settings.mjs",
@@ -289,14 +293,14 @@
     ]
   },
   "src/renderer/features/practice.mjs": {
-    "lines": 4374,
+    "lines": 4373,
     "imports": [
       "../services/task-runtime.mjs",
       "../vendor/react-icons-state.mjs"
     ]
   },
   "src/renderer/features/settings.mjs": {
-    "lines": 435,
+    "lines": 434,
     "imports": [
       "../stores/session.mjs",
       "../vendor/react-icons-state.mjs",
@@ -306,7 +310,7 @@
     ]
   },
   "src/renderer/features/workspace.mjs": {
-    "lines": 3678,
+    "lines": 3677,
     "imports": [
       "../services/gateway.mjs",
       "../services/task-runtime.mjs",
@@ -324,10 +328,12 @@
     ]
   },
   "src/renderer/local/app.mjs": {
-    "lines": 256,
+    "lines": 283,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../vendor/markdown.mjs",
+      "../../shared/brand.mjs",
+      "../../shared/conversation-modes.mjs",
       "../../shared/local-profile.mjs",
       "./requests.mjs",
       "./overlay.mjs",
@@ -343,15 +349,18 @@
     ]
   },
   "src/renderer/local/overlay.mjs": {
-    "lines": 30,
+    "lines": 31,
     "imports": [
       "../vendor/react-icons-state.mjs",
-      "../../shared/window-shortcuts.mjs"
+      "../../shared/window-shortcuts.mjs",
+      "../../shared/brand.mjs"
     ]
   },
   "src/renderer/local/requests.mjs": {
-    "lines": 42,
-    "imports": []
+    "lines": 46,
+    "imports": [
+      "../../shared/brand.mjs"
+    ]
   },
   "src/renderer/local/window-controls.mjs": {
     "lines": 41,
@@ -361,11 +370,11 @@
     ]
   },
   "src/renderer/services/gateway.mjs": {
-    "lines": 472,
+    "lines": 471,
     "imports": []
   },
   "src/renderer/services/task-runtime.mjs": {
-    "lines": 11011,
+    "lines": 11010,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../stores/session.mjs",
@@ -377,40 +386,48 @@
     ]
   },
   "src/renderer/stores/auth.mjs": {
-    "lines": 232,
+    "lines": 231,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../services/gateway.mjs"
     ]
   },
   "src/renderer/stores/session.mjs": {
-    "lines": 653,
+    "lines": 652,
     "imports": [
       "../vendor/react-icons-state.mjs"
     ]
   },
   "src/renderer/stores/settings.mjs": {
-    "lines": 214,
+    "lines": 213,
     "imports": [
       "../vendor/react-icons-state.mjs"
     ]
   },
   "src/renderer/vendor/markdown.mjs": {
-    "lines": 43518,
+    "lines": 43517,
     "imports": [
       "./react-icons-state.mjs"
     ]
   },
   "src/renderer/vendor/qrcode.mjs": {
-    "lines": 1955,
+    "lines": 1954,
     "imports": []
   },
   "src/renderer/vendor/react-icons-state.mjs": {
-    "lines": 8100,
+    "lines": 8099,
+    "imports": []
+  },
+  "src/shared/brand.mjs": {
+    "lines": 13,
     "imports": []
   },
   "src/shared/channels.mjs": {
-    "lines": 95,
+    "lines": 94,
+    "imports": []
+  },
+  "src/shared/conversation-modes.mjs": {
+    "lines": 5,
     "imports": []
   },
   "src/shared/local-profile.mjs": {

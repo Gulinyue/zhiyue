@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import * as node_perf_hooks from "node:perf_hooks";
 
 const MODIFIER_TOKENS = /* @__PURE__ */ new Set(["ctrl", "control", "shift", "alt", "super", "win", "meta", "cmd"]);
@@ -269,7 +268,7 @@ class PollingQuadrupleClickListener {
       try {
         this.onTrigger(sample);
       } catch (error) {
-        this.logger.warn("[climb:mouse-screenshot] trigger callback failed:", error);
+        this.logger.warn("[zhiyue:mouse-screenshot] trigger callback failed:", error);
       }
     });
   }
@@ -285,7 +284,7 @@ class PollingQuadrupleClickListener {
         this.pollHandle = null;
       } catch (error) {
         this.logger.warn(
-          "[climb:quadruple-click] polling cleanup after failure failed:",
+          "[zhiyue:quadruple-click] polling cleanup after failure failed:",
           error
         );
       }
@@ -296,7 +295,7 @@ class PollingQuadrupleClickListener {
     this.acceptingClicks = false;
     this.phase = "failed";
     this.lastError = message;
-    this.logger.warn(`[climb:quadruple-click] ${message}`);
+    this.logger.warn(`[zhiyue:quadruple-click] ${message}`);
   }
 }
 const VK_LBUTTON = 1;

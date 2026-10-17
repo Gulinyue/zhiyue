@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import * as promises from "node:fs/promises";
 import * as electron from "electron";
 import * as path from "node:path";
@@ -81,7 +80,7 @@ async function downloadAndInstallDesktopUpdate(downloadUrl, onProgress) {
         message: process.platform === "darwin" ? "Mac 安装包已下载，已在 Finder 中显示。请退出 Climb，打开 DMG（ZIP 请先解压），将 Climb 拖入「应用程序」并替换旧版。" : "安装包已下载到您的「下载」文件夹，文件资源管理器已自动打开。请关闭本应用后，双击安装包完成更新。"
       };
     } catch (err) {
-      console.error("[climb:updater] installer download failed:", err);
+      console.error("[zhiyue:updater] installer download failed:", err);
       await electron.shell.openExternal(DESKTOP_DOWNLOAD_PAGE);
       return {
         status: "fallback",

@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto';
+import { BRAND } from '../../shared/brand.mjs';
 
 export const OPENAI_ISSUER = 'https://auth.openai.com';
 export const OPENAI_RESOURCE = 'https://api.openai.com/v1';
@@ -117,7 +118,7 @@ export class ChatGptAuth {
         server.listen(0, '127.0.0.1', async () => {
           pending.redirectUri = `http://127.0.0.1:${server.address().port}/auth/callback`;
           const params = new URLSearchParams({ client_id: clientId, ext_agent_host_id: host, response_type: 'code', redirect_uri: pending.redirectUri, scope: `openid profile email offline_access resource.invoke ${PLAN_SCOPE}`, resource: OPENAI_RESOURCE, state, nonce, code_challenge_method: 'S256', code_challenge: createHash('sha256').update(verifier).digest('base64url') });
-          if (clientId === 'dynamic_agent_client') params.set('agent_name_hint', 'Climb Local');
+          if (clientId === 'dynamic_agent_client') params.set('agent_name_hint', BRAND.name);
           else if (previous.client_id === clientId && previous.id_token) params.set('id_token_hint', previous.id_token);
           if (clientId !== 'dynamic_agent_client' && !newAccount && selected?.email) params.set('login_hint', selected.email);
           try { await this.openBrowser(`${OPENAI_ISSUER}/api/accounts/authorize?${params}`); } catch { done(authError('无法打开浏览器')); }

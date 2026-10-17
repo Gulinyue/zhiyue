@@ -30,7 +30,7 @@ const callback = async (browser, extra = {}) => {
 
 test('real loopback OAuth callback validates PKCE, signed ID token and plan scope before saving credentials', async () => {
   let challenge;
-  const { auth, forms, read } = setup({ browser: async (url) => { challenge = url.searchParams.get('code_challenge'); assert.equal(url.searchParams.get('client_id'), 'dynamic_agent_client'); assert.equal(url.searchParams.get('agent_name_hint'), 'Climb Local'); assert.equal((await callback(url)).status, 200); } });
+  const { auth, forms, read } = setup({ browser: async (url) => { challenge = url.searchParams.get('code_challenge'); assert.equal(url.searchParams.get('client_id'), 'dynamic_agent_client'); assert.equal(url.searchParams.get('agent_name_hint'), '知跃'); assert.equal((await callback(url)).status, 200); } });
   const result = await auth.signIn();
   assert.equal(result.planEnabled, true); assert.equal(result.email, 'test@example.invalid');
   assert.equal('access_token' in result, false); assert.equal('refresh_token' in result, false);

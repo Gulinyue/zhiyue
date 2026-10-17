@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 
 
 const GWL_EXSTYLE = -20;
@@ -47,7 +46,7 @@ function loadUser32() {
       }
     };
   } catch (err) {
-    console.warn("[climb:harden] koffi load failed:", err);
+    console.warn("[zhiyue:harden] koffi load failed:", err);
     cachedBindings = null;
   }
   return cachedBindings;
@@ -69,7 +68,7 @@ function getContentProtectionDirect(win2) {
     const hwnd = readHwnd(win2);
     return hwnd === null ? "failed" : readDisplayAffinity(bindings, hwnd);
   } catch (err) {
-    console.warn("[climb:harden] GetWindowDisplayAffinity failed:", err);
+    console.warn("[zhiyue:harden] GetWindowDisplayAffinity failed:", err);
     return "failed";
   }
 }
@@ -93,7 +92,7 @@ function applyContentProtectionDirect(win2, enabled, options = {}) {
     if (okMon) return readDisplayAffinity(bindings, hwnd);
     return "failed";
   } catch (err) {
-    console.warn("[climb:harden] SetWindowDisplayAffinity failed:", err);
+    console.warn("[zhiyue:harden] SetWindowDisplayAffinity failed:", err);
     return "failed";
   }
 }
@@ -118,7 +117,7 @@ function hardenWindow(win2) {
     bindings.setExStyle(hwnd, next);
     patched.add(win2);
   } catch (err) {
-    console.warn("[climb:harden] patch failed:", err);
+    console.warn("[zhiyue:harden] patch failed:", err);
   }
 }
 

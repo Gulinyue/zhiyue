@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 
 
 const WORK_MODES = ["idle", "exam", "interview"];

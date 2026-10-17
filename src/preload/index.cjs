@@ -1,6 +1,8 @@
 "use strict";
+// 知跃 / Zhiyue · Developed by gulinyue. See LICENSE.
 const electron = require("electron");
 const { IPC } = require("../shared/channels.mjs");
+const { BRAND } = require('../shared/brand.mjs');
 function subscribe(channel, cb) {
   const wrapped = (_e, payload) => cb(payload);
   electron.ipcRenderer.on(channel, wrapped);
@@ -18,7 +20,7 @@ electron.ipcRenderer.on(
   }
 );
 const api = {
-  runtime: { platform: process.platform, arch: process.arch, edition: 'local' },
+  runtime: { platform: process.platform, arch: process.arch, edition: 'community', brand: BRAND },
   chatgpt: {
     status: () => electron.ipcRenderer.invoke('chatgpt:status'),
     signIn: (options) => electron.ipcRenderer.invoke('chatgpt:signin', options),

@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { jsxRuntimeExports, reactExports, s$6, s$2, s$4, s$5, n$5 } from "../vendor/react-icons-state.mjs";
 import { publicFetch, WEB_PORTAL_URL } from "../services/gateway.mjs";
 import { useAuth } from "../stores/auth.mjs";

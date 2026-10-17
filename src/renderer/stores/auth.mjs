@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { create$1 } from "../vendor/react-icons-state.mjs";
 import { primeTokens, subscriptionNeedsSync, publicFetch, withClientVersionBody, clearTokens, authFetch, GatewayUnavailableError, mergeSubscriptionFromStatusBody, AuthRequiredError, ClientUpdateRequiredError, SubscriptionRequiredError, toGatewayUnavailableError, WEB_PORTAL_URL } from "../services/gateway.mjs";
 

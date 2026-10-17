@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { jsxRuntimeExports } from "../vendor/react-icons-state.mjs";
 
 const KeyCap = ({ children, className = "" }) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `key-cap ${className}`, children });

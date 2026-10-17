@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { jsxRuntimeExports, reactExports } from "../vendor/react-icons-state.mjs";
 import { MarkdownBody } from "../vendor/markdown.mjs";
 import { useSession } from "../stores/session.mjs";

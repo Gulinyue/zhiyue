@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { create$1, reactExports, jsxRuntimeExports, React } from "../vendor/react-icons-state.mjs";
 import { useSession, audioHealthAfterListeningStop, createAudioHealthMonitor, audioPipelineStage, reduceAudioHealth, createIdleAudioHealthState, DEFAULT_PCM_ACTIVITY_RMS_THRESHOLD } from "../stores/session.mjs";
 import { authFetch, CLIMB_DESKTOP_VERSION, WEB_PORTAL_URL, getGatewayAccessToken, refreshGatewaySession, backendWsUrl, AuthRequiredError, SubscriptionRequiredError, ClientUpdateRequiredError, isGatewayUnavailableError, AuthRefreshUnavailableError, refreshGatewaySessionDetailed, invalidateGatewaySession, LEGACY_CLIENT_FEATURE_MESSAGE, notifyClientVersionUpdateRequired, gatewayUnavailableMessageFor } from "./gateway.mjs";
@@ -4049,7 +4048,7 @@ function recordInterviewTranscript(text2, identity2, connectionOwner) {
         if (/DISABLED|NOT_FOUND|ACCOUNT_MISMATCH|AUTH_REQUIRED/.test(message)) return;
         if (Date.now() - lastWarningAt < 3e4) return;
         lastWarningAt = Date.now();
-        window.api.log.error("[climb:local-records] 保存转写失败，请在面试与截图记录页面检查本机存储");
+        window.api.log.error("[zhiyue:local-records] 保存转写失败，请在面试与截图记录页面检查本机存储");
       }
     });
     useSession.subscribe(() => recorder?.synchronize());
@@ -4184,10 +4183,10 @@ function fmt(ms) {
 function log2(scope, event, elapsedMs, meta) {
   if (!enabled()) return;
   if (meta && Object.keys(meta).length > 0) {
-    console.info(`[climb:perf] ${scope} | ${event} | +${fmt(elapsedMs)}`, meta);
+    console.info(`[zhiyue:perf] ${scope} | ${event} | +${fmt(elapsedMs)}`, meta);
     return;
   }
-  console.info(`[climb:perf] ${scope} | ${event} | +${fmt(elapsedMs)}`);
+  console.info(`[zhiyue:perf] ${scope} | ${event} | +${fmt(elapsedMs)}`);
 }
 class PerfTrace {
   /** 与 API `[climb-api:llm:latency].traceId` 对齐，便于拆分排队 vs 上游。 */
@@ -4457,12 +4456,12 @@ function buildPersonalVoiceSystemPrompt(settings, resumeContext) {
 }
 function safeTelemetryCallback(label, callback, value) {
   safelyInvokeCallback(callback, value, (error2) => {
-    window.api.log.error(`[climb:llm] ${label} callback failed`, error2);
+    window.api.log.error(`[zhiyue:llm] ${label} callback failed`, error2);
   });
 }
 function safeTelemetrySignal(label, callback) {
   safelyInvokeSignal(callback, (error2) => {
-    window.api.log.error(`[climb:llm] ${label} callback failed`, error2);
+    window.api.log.error(`[zhiyue:llm] ${label} callback failed`, error2);
   });
 }
 const VISION_SOLVER_TEMPERATURE = 0.2;
@@ -4544,7 +4543,7 @@ function clearInterviewContext() {
   const resetSent = asrWs?.resetContext(requestId) ?? false;
   state.clearConversationContext(preserveSharedOutput);
   try {
-    window.api.log.info("[climb:voice] interview context reset requested", {
+    window.api.log.info("[zhiyue:voice] interview context reset requested", {
       requestId,
       resetSent,
       listening: state.listening,
@@ -4652,7 +4651,7 @@ function startVoiceAsrStallWatchdog() {
       scheduleVoiceReconnect(runner, void 0, "asr-restart-control-send-failed");
     }
     try {
-      window.api.log.info("[climb:voice] asr transcript stalled", {
+      window.api.log.info("[zhiyue:voice] asr transcript stalled", {
         source: "asr-final-timeout",
         action: restartedUpstream ? "restart-upstream-asr" : "reconnect-climb-websocket",
         requestId
@@ -4721,7 +4720,7 @@ function scheduleVoiceReconnect(reconnect, cause, source2 = "unspecified") {
   const delayMs = decision.delayMs;
   try {
     const connectionError = cause instanceof VoiceAssistantConnectionLostError ? cause : null;
-    window.api.log.info("[climb:voice] recovery scheduled", {
+    window.api.log.info("[zhiyue:voice] recovery scheduled", {
       source: connectionError?.reconnectSource ?? source2,
       stage: diagnostic.stage,
       reason: diagnostic.reason,
@@ -5239,7 +5238,7 @@ function startAudioHealthMonitoring(track) {
       if (fingerprint === lastDiagnosticFingerprint) return;
       lastDiagnosticFingerprint = fingerprint;
       try {
-        window.api.log.info("[climb:voice] audio pipeline stage", {
+        window.api.log.info("[zhiyue:voice] audio pipeline stage", {
           stage,
           connection: health.connection,
           issues: issueCodes,
@@ -5273,7 +5272,7 @@ async function rollbackListeningStartup(startup) {
     await releaseInterviewUsage();
   } catch (error2) {
     const log3 = error2 instanceof TypeError ? window.api.log.info : window.api.log.error;
-    log3("[climb:voice] failed to release usage during startup rollback", error2);
+    log3("[zhiyue:voice] failed to release usage during startup rollback", error2);
   } finally {
     finishListeningStartup(startup);
   }
@@ -5877,7 +5876,7 @@ async function startListening(settings, options = {}) {
     },
     onContextResetAck: (requestId) => {
       try {
-        window.api.log.info("[climb:voice] interview context reset acknowledged", {
+        window.api.log.info("[zhiyue:voice] interview context reset acknowledged", {
           requestId
         });
       } catch {
@@ -5885,7 +5884,7 @@ async function startListening(settings, options = {}) {
     },
     onAsrRestartAck: (requestId, taskId) => {
       try {
-        window.api.log.info("[climb:voice] upstream ASR restart acknowledged", {
+        window.api.log.info("[zhiyue:voice] upstream ASR restart acknowledged", {
           source: "asr-final-timeout",
           requestId,
           taskId
@@ -6240,7 +6239,7 @@ function stopListening() {
   resetListeningRendererState(hadVoiceConnection);
   void releaseInterviewUsage().catch((error2) => {
     const log3 = error2 instanceof TypeError ? window.api.log.info : window.api.log.error;
-    log3("[climb:voice] failed to release usage during stop", error2);
+    log3("[zhiyue:voice] failed to release usage during stop", error2);
   });
 }
 const SCREENSHOT_CLEANUP_FAILED = "截图答案已生成，但旧截图清理失败。请重试清理后再截图";
@@ -6269,7 +6268,7 @@ async function executeQueuedScreenshotAnalysis(input) {
       const cleanupError = await notifySuccessCleanup(
         input.onSucceeded,
         result,
-        "[climb:screenshot] queued onSucceeded callback failed"
+        "[zhiyue:screenshot] queued onSucceeded callback failed"
       );
       if (cleanupError) return reportLlmFailure(input.onError, cleanupError);
     }
@@ -6296,9 +6295,9 @@ async function executeLocalCaptureAndAnalyze(input) {
       if (cancelCapture && input.signal) {
         const abortCapture = () => {
           try {
-            void Promise.resolve(cancelCapture()).catch((error2) => logCommandCallbackError("[climb:screenshot] capture cancellation failed", error2));
+            void Promise.resolve(cancelCapture()).catch((error2) => logCommandCallbackError("[zhiyue:screenshot] capture cancellation failed", error2));
           } catch (error2) {
-            logCommandCallbackError("[climb:screenshot] capture cancellation failed", error2);
+            logCommandCallbackError("[zhiyue:screenshot] capture cancellation failed", error2);
           }
         };
         input.signal.addEventListener("abort", abortCapture, { once: true });
@@ -6316,7 +6315,7 @@ async function executeLocalCaptureAndAnalyze(input) {
       });
     } catch (error2) {
       if (input.signal?.aborted) return reportCommandFailure(input.onError, abortedResult());
-      logCommandCallbackError("[climb:screenshot] local capture IPC failed", error2);
+      logCommandCallbackError("[zhiyue:screenshot] local capture IPC failed", error2);
       return reportCommandFailure(input.onError, {
         ok: false,
         code: "CAPTURE_FAILED",
@@ -6345,7 +6344,7 @@ async function executeLocalCaptureAndAnalyze(input) {
     safelyNotify(
       input.onCaptured,
       captured,
-      "[climb:screenshot] onCaptured callback failed"
+      "[zhiyue:screenshot] onCaptured callback failed"
     );
     if (input.signal?.aborted) {
       return reportCommandFailure(input.onError, abortedResult());
@@ -6363,7 +6362,7 @@ async function executeLocalCaptureAndAnalyze(input) {
         screenshots = queued.filter((url2) => typeof url2 === "string" && url2.length > 0);
       }
     } catch (error2) {
-      logCommandCallbackError("[climb:screenshot] failed to read captured queue", error2);
+      logCommandCallbackError("[zhiyue:screenshot] failed to read captured queue", error2);
       return reportCommandFailure(input.onError, {
         ok: false,
         code: "CAPTURE_FAILED",
@@ -6397,7 +6396,7 @@ async function executeLocalCaptureAndAnalyze(input) {
       const cleanupError = await notifySuccessCleanup(
         input.onSucceeded,
         result,
-        "[climb:screenshot] local onSucceeded callback failed"
+        "[zhiyue:screenshot] local onSucceeded callback failed"
       );
       if (cleanupError) return reportCommandFailure(input.onError, cleanupError);
     }
@@ -6443,7 +6442,7 @@ async function executeRemoteCaptureAndAnalyze(input) {
           message: "电脑已锁定或挂起，远程截屏已安全停止"
         };
       }
-      window.api.log.error("[climb:remote-control] screenshot IPC failed", error2);
+      window.api.log.error("[zhiyue:remote-control] screenshot IPC failed", error2);
       return {
         ok: false,
         code: "CAPTURE_FAILED",
@@ -6518,7 +6517,7 @@ function abortedResult() {
   return { ok: false, code: "ABORTED", message: "截图命令已取消" };
 }
 function reportCommandFailure(callback, result) {
-  safelyNotify(callback, result, "[climb:screenshot] onError callback failed");
+  safelyNotify(callback, result, "[zhiyue:screenshot] onError callback failed");
   return result;
 }
 function safelyNotify(callback, value, logMessage) {
@@ -6540,7 +6539,7 @@ async function notifySuccessCleanup(callback, result, logMessage) {
   }
 }
 function reportLlmFailure(callback, result) {
-  safelyNotify(callback, result, "[climb:screenshot] onError callback failed");
+  safelyNotify(callback, result, "[zhiyue:screenshot] onError callback failed");
   return result;
 }
 function logCommandCallbackError(message, error2) {
@@ -6809,7 +6808,7 @@ function createDesktopScreenshotAnalysisMirror() {
       }
     } catch (error2) {
       reportMirrorFailure("无法建立手机答案通道，请检查连接后重试");
-      window.api.log.info("[climb:remote-control] desktop mirror unavailable", error2);
+      window.api.log.info("[zhiyue:remote-control] desktop mirror unavailable", error2);
     }
   };
   return {
@@ -7484,7 +7483,7 @@ function powerBlockedLabel(state) {
 }
 function reportError$1(error2, fallback) {
   const message = error2 instanceof Error && error2.message ? error2.message : fallback;
-  window.api.log.error("[climb:remote-control]", error2);
+  window.api.log.error("[zhiyue:remote-control]", error2);
   useRemoteControl.getState().patch({ lastError: message });
 }
 function remoteErrorLabel(code2) {
@@ -7559,7 +7558,7 @@ const RemoteControlPanel = () => {
     }).then((url2) => {
       if (!cancelled) setQrDataUrl(url2);
     }).catch((error2) => {
-      window.api.log.error("[climb:remote-control] local QR generation failed", error2);
+      window.api.log.error("[zhiyue:remote-control] local QR generation failed", error2);
     });
     return () => {
       cancelled = true;

@@ -1,11 +1,11 @@
 {
-  "name": "climb-local",
-  "productName": "Climb Local",
+  "name": "zhiyue-desktop",
+  "productName": "知跃",
   "version": "3.0.1-local.1",
   "private": true,
-  "description": "Standalone Climb desktop workspace with direct model connections",
+  "description": "知跃：社区免费的 AI 笔试与学习桌面助手",
   "main": "out/main/index.js",
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "engines": {
     "node": ">=22"
   },
@@ -17,7 +17,8 @@
     "test": "node --test tests/*.test.mjs",
     "test:smoke": "npm run build && node scripts/smoke.mjs",
     "test:auth-smoke": "npm run build && node scripts/smoke.mjs auth",
-    "verify": "npm run check && npm test && npm run build"
+    "verify": "npm run check && npm test && npm run build",
+    "assets:logo": "node scripts/render-brand.mjs"
   },
   "dependencies": {
     "electron-store": "8.2.0",
@@ -29,5 +30,6 @@
     "electron": "38.8.6",
     "esbuild": "^0.25.0",
     "eslint-scope": "^8.4.0"
-  }
+  },
+  "author": "gulinyue"
 }

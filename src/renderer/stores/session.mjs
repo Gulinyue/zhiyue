@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { create$1 } from "../vendor/react-icons-state.mjs";
 
 const IDLE_RUNTIME_TASK = { status: "idle" };

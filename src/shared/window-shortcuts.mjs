@@ -3,5 +3,5 @@ export const WINDOW_SHORTCUTS = [
   ['窗口向上移动', 'window:moveUp'], ['窗口向下移动', 'window:moveDown'], ['窗口向左移动', 'window:moveLeft'], ['窗口向右移动', 'window:moveRight'],
   ['内容向上滚动', 'answer:scrollUp'], ['内容向下滚动', 'answer:scrollDown'], ['代码 / 内容向左滚动', 'answer:scrollLeft'], ['代码 / 内容向右滚动', 'answer:scrollRight'],
   ['降低不透明度', 'window:opacityDown'], ['提高不透明度', 'window:opacityUp'], ['切换鼠标穿透', 'window:toggleMouseThrough'],
-  ['截图并提问（专注窗口）', 'screenshot:capture'], ['滚动截图并提问（专注窗口）', 'screenshot:captureScrolling'], ['退出专注窗口', 'exam:exit'],
+  ['截图出答案（笔试 / 专注）', 'screenshot:capture'], ['滚动截图出答案（笔试 / 专注）', 'screenshot:captureScrolling'], ['退出专注窗口', 'exam:exit'],
 ];

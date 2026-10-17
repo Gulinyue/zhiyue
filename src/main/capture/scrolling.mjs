@@ -1,4 +1,3 @@
-// Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { CAPTURE_LONG_UNAVAILABLE, MAX_SCROLL_SCREENSHOT_IMAGES, CAPTURE_LONG_INTERRUPTED } from "./constants.mjs";
 
 const MAX_LONG_SCREENSHOT_PIXELS = 16e6;
