@@ -18,7 +18,13 @@ electron.ipcRenderer.on(
   }
 );
 const api = {
-  runtime: { platform: process.platform, arch: process.arch },
+  runtime: { platform: process.platform, arch: process.arch, edition: 'local' },
+  workspace: {
+    list: () => electron.ipcRenderer.invoke('local-workspace:list'),
+    read: (id) => electron.ipcRenderer.invoke('local-workspace:read', id),
+    save: (conversation) => electron.ipcRenderer.invoke('local-workspace:save', conversation),
+    delete: (id) => electron.ipcRenderer.invoke('local-workspace:delete', id)
+  },
   settings: {
     get: () => electron.ipcRenderer.invoke(IPC.settingsGet),
     set: (s) => electron.ipcRenderer.invoke(IPC.settingsSet, s),

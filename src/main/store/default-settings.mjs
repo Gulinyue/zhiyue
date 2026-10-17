@@ -108,12 +108,12 @@ const DEFAULT_SETTINGS = {
   theme: { outer: "#F2C6FF", inner: "#2A1744" },
   language: "Python",
   solverMode: "LeetCode",
-  windowMode: "stealth",
+  windowMode: "normal",
   position: null,
   zoom: 1,
   opacity: 1,
   mouseThroughOpacity: DEFAULT_MOUSE_THROUGH_OPACITY,
-  disableClipboard: true,
+  disableClipboard: false,
   hideTrayIcon: false,
   mouseThrough: false,
   doubleClickScreenshotEnabled: false,
@@ -182,8 +182,8 @@ const DEFAULT_SETTINGS = {
     "编排"
   ],
   customPrompts: "",
-  examVisionModelProfile: "gemini",
-  interviewVoiceModelProfile: "managed",
+  examVisionModelProfile: "personal-custom-api",
+  interviewVoiceModelProfile: "personal-custom-api",
   screenshotResponsePreset: "balanced",
   voiceVad: DEFAULT_VOICE_VAD_CONFIG
 };
@@ -216,6 +216,7 @@ function normalizeScreenshotDisplayId(value) {
   return normalized;
 }
 const STEALTH_TOGGLE_ALLOWED_EMAILS = [
+  "local@climb.local",
   "admin@climb.local",
   "month-test@climb.local"
 ];

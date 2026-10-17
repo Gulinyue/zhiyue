@@ -1,5 +1,7 @@
 # 原云端接口索引
 
+> 归档：此文档对应 `codex/cloud-recovered` 分支。本地独立版不编译或调用这些云端接口；当前说明见 [LOCAL.md](LOCAL.md)。
+
 默认后端与门户均为 `https://workclimb.top`。REST 请求保留 `X-Climb-Client-Version: 3.0.1`、平台与架构请求头；带账号的请求保留 Bearer token 和刷新机制。WebSocket 从同一后端地址派生 WSS URL。
 
 以下路径来自恢复代码，不代表服务端实现或全部请求字段已独立验证。

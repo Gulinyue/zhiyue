@@ -1,68 +1,61 @@
-# Climb 3.0.1 恢复工程
+# Climb Local
 
-根据设计文档与目录中残留的构建产物，恢复的 Electron 桌面客户端。保留原版中文界面、登录订阅、云端模型与语音、手机远控、个人模型、本地知识库和记录。默认仍连接 `https://workclimb.top`。
+不依赖 Climb 服务器的桌面工作区。启动后直接使用，无需账号、订阅或旧云端授权。文字与截图问答直接连接你自己配置的模型，本机保存资料和会话。
 
-这次恢复得到的是可编辑的 JavaScript ES Modules 工程。原始 TypeScript 类型、TSX 和服务端源码没有出现在提供的文件中，不能从中还原出来。React 组件保留了构建后的 `jsxRuntime` 写法；第三方库的原版构建快照位于 `src/renderer/vendor/`。
+当前分支：`codex/local-standalone`。之前的原云端恢复版保存在 `codex/cloud-recovered`，可随时对照。
 
 ## 启动
 
-需要 Node.js 22 或更新版本。当前目录已装好依赖，可直接在 PowerShell 中运行：
+当前目录已安装依赖，在 PowerShell 中运行：
 
 ```powershell
 npm.cmd start
 ```
 
-重新获取项目后，先执行 `npm.cmd ci`。开发启动使用独立数据目录 `.runtime/dev/`，与已安装原版的配置、账号和记录分开。关闭窗口后应用保留在托盘，可从托盘退出；`Ctrl+E` 显示或隐藏窗口。
+新环境需要 Node.js 22 或更新版本，先执行 `npm.cmd ci`。
+
+首次使用打开“连接与设置”，填写模型 Base URL、模型名称和 API Key。支持 OpenAI 兼容接口；远程地址使用 HTTPS，本机模型服务支持 `http://localhost`、`http://127.0.0.1`。本机服务未启用认证时 Key 可以留空。
+
+文字模型与截图模型可分别配置，也可填写相同连接。只有截图模型时，文字问答也可使用该连接；截图分析要求模型支持图片输入。保存连接不会发起模型请求；“测试并保存”和发送提问才会调用模型。
+
+**本地独立不等于所有模型都离线。** 使用在线模型仍需联网；使用已运行的本机模型服务时不需要 Climb 云端。此工程不附带模型权重或模型服务。
+
+## 当前功能
+
+- **文字问答**：Markdown、代码与公式，支持流式输出和停止生成。
+- **截图分析**：多屏选择、最多 4 张图片，专注状态下可用 `Ctrl+Q` 截图并提问、`Ctrl+Shift+Q` 滚动截图并提问。
+- **文字模拟面试**：通过自己的模型逐题提问和反馈。
+- **本机知识库**：粘贴或导入 TXT / Markdown，按问题关键词挑选相关片段作为上下文。
+- **会话记录**：自动保存文字对话、继续会话、删除记录。原始截图不写入会话 JSON，可单独开启本机截图归档。
+- **桌面能力**：专注窗口、置顶、透明度、鼠标穿透、托盘和快捷键；隐身窗口模式重启后生效。
+
+语音识别、手机远控、原云端的职位推荐、简历解析和结构化演练报告尚未接入。原服务器数据无法从这个客户端恢复。
+
+## 数据与密钥
+
+开发启动使用独立目录 `.runtime/local-dev/`，不复用恢复版的 `.runtime/dev/` 或已安装原版的数据。API Key 使用操作系统安全存储加密，模型配置、资料和对话保存在本机。不会启动旧版登录、订阅、版本检查、远控或授权请求。
+
+渲染进程的网络连接由 CSP 禁止；模型请求通过受限 IPC 在主进程中发出。发送时，当前提问、所附截图、最近的文字上下文和匹配的资料片段会交给所配置的模型服务商。知识库不需要云端索引或 embedding 服务。
+
+## 验证
 
 ```powershell
-npm.cmd run check       # 源码语法和未声明引用
-npm.cmd test            # 21 项核心行为测试
-npm.cmd run build       # 从 src 重新生成 out
-npm.cmd run test:smoke  # 实际启动 Electron，使用本地模拟服务验证
-npm.cmd run verify     # 源码检查、测试、构建
+npm.cmd run verify      # 源码检查、26 项测试、构建
+npm.cmd run test:smoke  # 实际 Electron + 本机模拟模型的端到端检查
 ```
 
-冒烟测试不会向原云端提交测试账号。它会短暂打开测试窗口，测试结束后关闭，截图和报告写入 `artifacts/`。
+冒烟测试阻断所有非本机模拟模型请求，检查免登录启动、配置保存、资料检索、文字与图片流式回答、取消、记录重开、截图快捷键、专注窗口和浮层权限。截图操作在冒烟测试中使用应用自身图像作为替身；真实桌面捕获的调度与安全门另有单元测试，未进行会议软件共享兼容验收。
 
-## 配置原云端或自己的部署
+验证输出：`artifacts/local-smoke-report.json`、`local-workspace.png`、`local-settings.png`、`local-chat.png`。尚未使用用户真实 API Key 对外部服务商验收。
 
-复制 `.env.example` 为 `.env`，修改以下公开地址后重新构建：
+## 源码
 
-```dotenv
-CLIMB_BACKEND_URL=https://workclimb.top
-CLIMB_WEB_URL=https://workclimb.top
-```
-
-两个地址分别用于 REST/WSS 与网页门户。个人模型的 Base URL 和 API Key 在应用的“准备中心 → API KEY 管理”中设置。密钥通过操作系统加密后保存，不放入 `.env`。原版个人模型调用仍保留后端授权校验，需要原服务和有效账号。
-
-调试窗口可在启动前设置 `$env:DEBUG_WINDOW="1"`，此模式会关闭窗口内容保护，仅用于开发。正常启动保留原版透明置顶、穿透、保护读回、令牌握手与浮层保护流程。
-
-## 源码位置
-
-| 目录 | 内容 |
+| 位置 | 职责 |
 | --- | --- |
-| `src/main/security/`、`windows/` | 原生内容保护、窗口尺寸和 reveal 协议辅助模块 |
-| `src/main/capture/` | 多屏选择、捕获调度、可见性租约、滚动截图 |
-| `src/main/models/` | 参数校验、凭据、SSE、Chat Completions / Responses 适配器 |
-| `src/main/store/` | 设置、登录状态、知识库、本地记录 |
-| `src/main/ipc/`、`src/shared/` | IPC 权限网关与共用通道 |
-| `src/main/index.mjs` | 生命周期、窗口协调、热键和 IPC 业务编排 |
-| `src/preload/` | 渲染层 API 桥 |
-| `src/renderer/features/`、`stores/`、`services/` | 界面组件、状态、原云端协议与任务链路 |
+| `src/renderer/local/` | 本地工作台、模型设置、知识库、会话、提示词、浮层 |
+| `src/main/models/` | 直接模型调用、参数校验、SSE、取消与密钥加密 |
+| `src/main/store/workspace*.mjs` | 本地会话结构与持久化 |
+| `src/shared/local-profile.mjs` | 固定的本机文件命名空间，不是云端账号 |
+| `src/main/capture/`、`windows/`、`security/` | 原生截图、窗口和 IPC 安全 |
 
-主进程编排和语音/远控运行时仍有较大模块，保留它们是为了让恢复后的行为能够与原版核对。详细恢复说明与验证边界见 [docs/RECOVERY.md](docs/RECOVERY.md)，接口索引见 [docs/BACKEND.md](docs/BACKEND.md)。
-
-## 已完成的验证
-
-- 21 项测试通过：截图轮转与清理、滚动安全门、流式解析与取消、记录重开、账号隔离、凭据和更新完整性。
-- Windows Electron 实际启动，通过本地模拟登录进入工作台，并验证设置、知识库、模型凭据、窗口切换令牌和快捷键浮层。
-- 在当前 Windows 环境中，主窗与浮层的 `GetWindowDisplayAffinity` 均读回 `17`（exclude）。这不等同于所有会议/录屏软件的兼容验收。
-- 2026-10-17（新加坡时间），原后端公开版本接口使用 3.0.1 客户端头返回 HTTP 200，报告最新版本 3.0.2、`forceUpdate: false`。
-
-真实账号登录、付费配额、云端 ASR/回答、手机配对与远控、macOS 窗口行为尚未端到端验证。服务端源码不在本工程内。
-
-## 更新行为
-
-原版的“仅校验文件魔数”下载流程已增加可信 SHA-256 校验。发布前需在 `src/shared/trusted-updates.json` 中维护确切安装包 URL 与摘要；当前没有可核验的发布摘要，因此保留打开官网下载页的回退方式。不会把未经摘要校验的安装包保存为可安装更新。
-
-原始损坏文件备份在 `recovery/`，原依赖保留在 `node_modules.damaged/`；正常构建和运行都不依赖这两个目录。
+旧的云端界面源码仍保留用于对照，但不在本地版构建入口中。更详细的变更与限制见 [docs/LOCAL.md](docs/LOCAL.md)。

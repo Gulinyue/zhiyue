@@ -1,9 +1,9 @@
 {
-  "name": "climb-desktop",
-  "productName": "Climb",
-  "version": "3.0.1",
+  "name": "climb-local",
+  "productName": "Climb Local",
+  "version": "3.0.1-local.1",
   "private": true,
-  "description": "Recovered Climb 3.0.1 Electron desktop application",
+  "description": "Standalone Climb desktop workspace with direct model connections",
   "main": "out/main/index.js",
   "license": "UNLICENSED",
   "engines": {

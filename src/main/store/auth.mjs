@@ -3,6 +3,7 @@ import Store from "electron-store";
 import * as electron from "electron";
 import * as node_crypto from "node:crypto";
 import { createTokenCodec } from "../security/token-codec.mjs";
+import { LOCAL_SNAPSHOT } from '../../shared/local-profile.mjs';
 
 const store$3 = new Store({
   name: "auth",
@@ -11,19 +12,10 @@ const store$3 = new Store({
 });
 const { encrypt, decrypt } = createTokenCodec(electron.safeStorage);
 function getTokens() {
-  return {
-    accessToken: decrypt(store$3.get("atEnc")),
-    refreshToken: decrypt(store$3.get("rtEnc"))
-  };
+  return {};
 }
-function saveTokens(p) {
-  const next = {};
-  if (p.accessToken !== void 0) next.atEnc = encrypt(p.accessToken);
-  if (p.refreshToken !== void 0) next.rtEnc = encrypt(p.refreshToken);
-  if (p.email !== void 0) next.email = p.email;
-  if (p.expiresAt !== void 0) next.expiresAt = p.expiresAt;
-  if (p.subscription !== void 0) next.subscription = p.subscription;
-  store$3.set(next);
+function saveTokens() {
+  throw new Error('本地独立版不使用云端登录令牌。');
 }
 function clearTokens() {
   store$3.delete("atEnc");
@@ -60,17 +52,7 @@ function getOrCreateRemoteControlDeviceId() {
   return created;
 }
 function getSnapshot() {
-  const { accessToken } = getTokens();
-  const email = store$3.get("email");
-  const sub = store$3.get("subscription");
-  const expiresAt = store$3.get("expiresAt");
-  if (!accessToken || !email) {
-    return { status: "anon" };
-  }
-  if (sub && sub.active === false) {
-    return { status: "expired", email, subscription: sub, expiresAt };
-  }
-  return { status: "loggedIn", email, subscription: sub, expiresAt };
+  return { ...LOCAL_SNAPSHOT };
 }
 
 export { store$3, encrypt, decrypt, getTokens, saveTokens, clearTokens, getRemoteControlCredentials, saveRemoteControlCredentials, clearRemoteControlCredentials, getOrCreateRemoteControlDeviceId, getSnapshot };

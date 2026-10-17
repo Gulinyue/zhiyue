@@ -1,6 +1,8 @@
 // Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
+import { registerWorkspaceIpc } from "./store/workspace.mjs";
+import { normalizeLocalModelRunInput } from "./models/local-request.mjs";
+import { isLoopbackHostname } from "./models/validation.mjs";
 import { IPC } from "../shared/channels.mjs";
-import { validatedPortalUrl } from "./security/external-url.mjs";
 import { createIpcGateway } from "./ipc/gateway.mjs";
 import * as electron from "electron";
 import * as path from "node:path";
@@ -24,7 +26,6 @@ import { LocalRecordsStore } from "./store/local-records.mjs";
 import { loadPersonalModelCredentialSecret, removePersonalModelCredential, removePersonalModelProfile, getConfiguredPersonalModelProfile, listPersonalModelCredentialSummaries, listPersonalModelProfiles, savePersonalModelCredential, savePersonalModelProfile, PersonalModelCredentialStoreError, clearSessionPersonalModelCredentials } from "./models/credentials.mjs";
 import { createDefaultPersonalModelProfile, isPersonalModelConnectionSlot, validatePersonalModelRequest, PersonalModelValidationError } from "./models/validation.mjs";
 import { createPersonalModelAdapter, personalModelInvalidRequestMessage } from "./models/adapters.mjs";
-import { downloadAndInstallDesktopUpdate } from "./updater/download.mjs";
 import { PersonalModelAdapterError } from "./models/transport.mjs";
 
 "use strict";
@@ -2329,6 +2330,7 @@ const mainIpc = createIpcGateway(
 function registerIpc() {
   if (ipcRegistered) return;
   ipcRegistered = true;
+  registerWorkspaceIpc(mainIpc);
   registerRemoteControlPowerMonitorBridge();
   registerLocalRecordsIpc(mainIpc, {
     store: new LocalRecordsStore(path.join(electron.app.getPath("userData"), "records-v1", "store")),
@@ -2486,7 +2488,7 @@ function registerIpc() {
       const webContentsId = event.sender.id;
       try {
         assertMainRenderer(webContentsId);
-        const input = normalizePersonalModelRunInput(raw);
+        const input = normalizeLocalModelRunInput(raw);
         if (activePersonalModelRuns.has(input.requestId)) {
           return {
             ok: false,
@@ -2519,7 +2521,6 @@ function registerIpc() {
               }
             };
           }
-          await verifyPersonalModelEntitlement(input, controller.signal);
           const apiKey = loadPersonalModelCredentialSecret(
             profile.baseUrl,
             personalModelUrlValidationOptions(),
@@ -2713,11 +2714,7 @@ function registerIpc() {
   mainIpc.handle(IPC.appQuit, () => quitApp());
   mainIpc.handle(
     IPC.appDownloadUpdate,
-    (event, payload) => downloadAndInstallDesktopUpdate(payload?.downloadUrl, (progress) => {
-      if (!event.sender.isDestroyed()) {
-        event.sender.send(IPC.appUpdateDownloadProgress, progress);
-      }
-    })
+    () => ({ status: "unavailable", message: "本地版不使用旧云端更新。" })
   );
   mainIpc.handle(IPC.authGetSnapshot, () => getSnapshot());
   mainIpc.handle(IPC.authGetTokens, () => getTokens());
@@ -2734,7 +2731,7 @@ function registerIpc() {
   mainIpc.handle(IPC.authClearTokens, () => {
     clearTokens();
     notifyLocalRecordsAuthChanged();
-    broadcast(IPC.authChanged, { status: "anon" });
+    broadcast(IPC.authChanged, getSnapshot());
   });
   mainIpc.handle(IPC.remoteControlCredentialsGet, () => getRemoteControlCredentials());
   mainIpc.handle(IPC.remoteControlDeviceIdGet, () => getOrCreateRemoteControlDeviceId());
@@ -2750,7 +2747,7 @@ function registerIpc() {
   mainIpc.handle(IPC.remoteControlPowerStateGet, () => remoteControlPowerState());
   mainIpc.handle(IPC.authOpenPortal, async (_e, url) => {
     if (!url) return;
-    await electron.shell.openExternal(validatedPortalUrl(url));
+    throw new Error("本地版没有云端账户门户。");
   });
   mainIpc.on(IPC.logInfo, (_e, ...args) => console.log("[climb:ui]", ...args));
   mainIpc.on(IPC.logError, (_e, ...args) => console.error("[climb:ui]", ...args));
@@ -2956,8 +2953,11 @@ function normalizePersonalModelConnectionInput(raw) {
     },
     slot
   );
-  const apiKey = typeof value.apiKey === "string" ? value.apiKey.trim() : void 0;
+  let apiKey = typeof value.apiKey === "string" ? value.apiKey.trim() : void 0;
   if (value.apiKey !== void 0 && !apiKey) throw new Error("API Key 不能为空");
+  if (!apiKey && isLoopbackHostname(new URL(profile.baseUrl).hostname)) {
+    apiKey = loadPersonalModelCredentialSecret(profile.baseUrl, personalModelUrlValidationOptions(), slot) || "local-no-key";
+  }
   return {
     slot: profile.slot,
     model: profile.model,
@@ -2983,7 +2983,7 @@ function normalizePersonalModelConnectionSlot(value) {
   return value;
 }
 function personalModelConnectionSlotForRequest(input) {
-  return countValidatedPersonalModelImages(input.request) > 0 ? "screenshot" : "interview";
+  return input.slot ?? (countValidatedPersonalModelImages(input.request) > 0 ? "screenshot" : "interview");
 }
 function countValidatedPersonalModelImages(request) {
   let count = 0;
@@ -2993,108 +2993,8 @@ function countValidatedPersonalModelImages(request) {
   }
   return count;
 }
-function normalizePersonalModelRunInput(raw) {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new PersonalModelBridgeError("PERSONAL_MODEL_INVALID_INPUT", "无效的本机模型请求");
-  }
-  const value = raw;
-  if (Object.keys(value).some((key) => ![
-    "requestId",
-    "entitlement",
-    "taskKind",
-    "request"
-  ].includes(key))) {
-    throw new PersonalModelBridgeError("PERSONAL_MODEL_INVALID_INPUT", "无效的本机模型请求");
-  }
-  const requestId = typeof value.requestId === "string" ? value.requestId.trim() : "";
-  const entitlement = typeof value.entitlement === "string" ? value.entitlement.trim() : "";
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{7,127}$/u.test(requestId)) {
-    throw new PersonalModelBridgeError("PERSONAL_MODEL_INVALID_INPUT", "无效的请求标识");
-  }
-  if (!entitlement || entitlement.length > 3072) {
-    throw new PersonalModelBridgeError("PERSONAL_MODEL_ENTITLEMENT_INVALID", "本次调用授权无效，请重试");
-  }
-  if (!isPersonalModelTaskKind(value.taskKind)) {
-    throw new PersonalModelBridgeError("PERSONAL_MODEL_INVALID_INPUT", "无效的模型路由");
-  }
-  return {
-    requestId,
-    entitlement,
-    taskKind: value.taskKind,
-    request: validatePersonalModelRequest(value.request)
-  };
-}
-function isPersonalModelTaskKind(value) {
-  return value === "exam" || value === "interview";
-}
-async function verifyPersonalModelEntitlement(input, parentSignal) {
-  const imageCount = countValidatedPersonalModelImages(input.request);
-  const capability = imageCount > 0 ? "vision" : "text";
-  const units = imageCount > 0 ? imageCount : 1;
-  return verifyLocalModelEntitlement({
-    entitlement: input.entitlement,
-    provider: "custom-api",
-    capability,
-    taskKind: input.taskKind,
-    units
-  }, parentSignal);
-}
-async function verifyLocalModelEntitlement(input, parentSignal) {
-  if (!Number.isInteger(input.units) || input.units < 1 || input.units > 20 || input.capability === "text" && input.units !== 1) {
-    throw new PersonalModelBridgeError(
-      "PERSONAL_MODEL_INVALID_INPUT",
-      "模型调用计量参数无效"
-    );
-  }
-  const controller = new AbortController();
-  const onAbort = () => controller.abort(parentSignal.reason);
-  if (parentSignal.aborted) onAbort();
-  else parentSignal.addEventListener("abort", onAbort, { once: true });
-  const timeout = setTimeout(() => controller.abort("entitlement-timeout"), 15e3);
-  try {
-    const response = await fetch(`${personalModelBackendBaseUrl()}/v1/byok/entitlements/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        entitlement: input.entitlement,
-        provider: input.provider,
-        capability: input.capability,
-        taskKind: input.taskKind,
-        units: input.units
-      }),
-      signal: controller.signal
-    });
-    if (!response.ok) {
-      throw new PersonalModelBridgeError(
-        "LOCAL_MODEL_ENTITLEMENT_INVALID",
-        "本次调用授权已失效，请重试"
-      );
-    }
-  } catch (error) {
-    if (error instanceof PersonalModelBridgeError) throw error;
-    if (parentSignal.aborted) {
-      throw new PersonalModelBridgeError("PERSONAL_MODEL_ABORTED", "请求已取消");
-    }
-    throw new PersonalModelBridgeError(
-      "LOCAL_MODEL_ENTITLEMENT_UNAVAILABLE",
-      "无法验证 Climb 套餐授权，请检查网络后重试"
-    );
-  } finally {
-    clearTimeout(timeout);
-    parentSignal.removeEventListener("abort", onAbort);
-  }
-}
 function personalModelUrlValidationOptions() {
-  return { allowInsecureLocalhost: !electron.app.isPackaged };
-}
-function personalModelBackendBaseUrl() {
-  let configured = "";
-  try {
-    configured = __CLIMB_BACKEND_URL__.trim();
-  } catch {
-  }
-  const fallback = electron.app.isPackaged ? "https://workclimb.top" : "http://localhost:8787";
-  return (configured || fallback).replace(/\/$/u, "");
+  return { allowInsecureLocalhost: true };
 }
 class PersonalModelBridgeError extends Error {
   constructor(code, message) {
