@@ -73,6 +73,7 @@ const IPC = {
   localRecordsDelete: "local-records:delete",
   appQuit: "app:quit",
   appOpenSupport: 'app:openSupport',
+  appOpenFeedback: 'app:openFeedback',
   appDownloadUpdate: "app:updateDownload",
   appUpdateDownloadProgress: "app:updateDownloadProgress",
   authGetTokens: "auth:getTokens",

@@ -239,6 +239,8 @@ app.whenReady().then(async () => {
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.workspace.list()'));
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.personalModels.load()'));
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.app.openSupport()'));
+  await assert.rejects(overlay.webContents.executeJavaScript('window.api.app.openFeedback()'));
+  await assert.rejects(overlay.webContents.executeJavaScript('window.api.interview.connection()'));
   assert.equal(externalUrls.length, 0);
   const restore = await evaluate('window.api.window.setTaskSurface("idle", "preparation", false)');
   assert.equal(await evaluate(`window.api.window.commitTaskSurface(${restore})`), true);
@@ -249,9 +251,14 @@ app.whenReady().then(async () => {
   await evaluate('document.querySelector("[data-support-developer]").click()');
   await waitFor(() => externalUrls.length === 1, 'developer support opens browser');
   assert.deepEqual(externalUrls, ['https://afdian.com/a/gulinyue618']);
-  await evaluate('document.querySelector("[data-about-brand]").scrollIntoView({block:"center"})');
+  await evaluate('document.querySelector("[data-developer-contact]").scrollIntoView({block:"center"})');
   await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
   fs.writeFileSync(path.join(artifacts, 'zhiyue-developer-support.png'), (await main.webContents.capturePage()).toPNG());
+  await evaluate('document.querySelector("[data-feedback-email]").click()');
+  await waitFor(() => externalUrls.length === 2, 'feedback opens mail client');
+  assert.equal(new URL(externalUrls[1]).pathname, 'linyue_clawbot001@163.com');
+  assert.equal(new URL(externalUrls[1]).protocol, 'mailto:');
+  assert.equal(await evaluate('document.querySelector("[data-developer-contact]").compareDocumentPosition(document.querySelector("[data-speech-settings]")) & Node.DOCUMENT_POSITION_FOLLOWING'), 4);
   await evaluate('document.querySelector("[data-written-settings]").scrollIntoView({block:"start"})');
   await setValue('[data-written-setting=codingLanguage]', 'Go');
   await waitFor(() => evaluate('window.api.settings.get().then(s=>s.writtenOptions.codingLanguage === "Go")'), 'persisted coding language');

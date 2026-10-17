@@ -1,4 +1,5 @@
 import { DEFAULT_WRITTEN_OPTIONS, normalizeWrittenOptions } from '../../shared/written-options.mjs';
+import { DEFAULT_INTERVIEW_OPTIONS, normalizeInterviewOptions } from '../../shared/interview-options.mjs';
 
 const MOVE_FALLBACKS = {
   "window:moveUp": "Alt+Shift+Up",
@@ -108,6 +109,7 @@ function normalizeVoiceLlmMaxTokens(value) {
   );
 }
 const DEFAULT_SETTINGS = {
+  interviewOptions: DEFAULT_INTERVIEW_OPTIONS,
   writtenOptions: DEFAULT_WRITTEN_OPTIONS,
   hotkeys: DEFAULT_HOTKEYS,
   theme: { outer: "#F2C6FF", inner: "#2A1744" },
@@ -241,6 +243,7 @@ function enforceDesktopSettingsPolicy(settings, options) {
   return {
     ...settings,
     writtenOptions: normalizeWrittenOptions(settings.writtenOptions),
+    interviewOptions: normalizeInterviewOptions(settings.interviewOptions),
     hotkeys: {
       ...DEFAULT_HOTKEYS,
       ...settings.hotkeys,
