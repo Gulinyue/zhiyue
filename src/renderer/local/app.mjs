@@ -297,7 +297,7 @@ function App() {
       h(HotkeySettings, { settings, patchSettings, report }),
       h('section', { className: 'panel about-brand', 'data-about-brand': true },
         h('img', { src: './assets/logo.svg', alt: '知跃 Logo' }),
-        h('div', null, h('h3', null, BRAND.name + ' · ' + BRAND.englishName), h('p', null, BRAND.tagline), h('p', { className: 'developer-watermark' }, '开发者 · ' + BRAND.developer), h('p', { className: 'muted small' }, '社区免费版 · 连接自己的模型，数据保存在本机。'))),
+        h('div', null, h('h3', null, BRAND.name + ' · ' + BRAND.englishName + ' ' + BRAND.version), h('p', null, BRAND.tagline), h('p', { className: 'developer-watermark' }, '开发者 · ' + BRAND.developer), h('p', { className: 'muted small' }, '社区免费版 · 连接自己的模型，数据保存在本机。'))),
       h('section', { className: 'panel capability-note' }, h('h3', null, '这个版本支持什么'), h('p', null, '已支持文字问答、笔试截图出答案、文字模拟面试、本机知识库和会话记录。语音识别和手机远控尚未接入。'), h('p', { className: 'muted small' }, '社区版不依赖应用账号服务器。使用在线模型时仍需联网；使用本机模型服务时，请填写 localhost 或 127.0.0.1 接口。')));
   }
   const pages = [['chat', '✦', '工作台'], ['exam', '▣', '笔试模式'], ['knowledge', '▤', '本机知识库'], ['history', '◷', '会话记录'], ['settings', '⚙', '连接与设置']];

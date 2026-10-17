@@ -1,4 +1,4 @@
-const portalBase = typeof __CLIMB_WEB_URL__ === 'string' ? __CLIMB_WEB_URL__ : 'https://workclimb.top';
+const portalBase = 'https://github.com';
 
 export function validatedPortalUrl(raw, allowedBase = portalBase) {
   if (typeof raw !== 'string' || raw.length > 4096) throw new Error('PORTAL_URL_INVALID');

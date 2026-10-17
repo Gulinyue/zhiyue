@@ -6,4 +6,10 @@ recovery/
 .runtime/
 .env
 artifacts/
+dist/
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
 *.log

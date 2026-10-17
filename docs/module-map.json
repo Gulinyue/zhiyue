@@ -432,8 +432,10 @@
     "imports": []
   },
   "src/shared/brand.mjs": {
-    "lines": 13,
-    "imports": []
+    "lines": 16,
+    "imports": [
+      "../../package.json"
+    ]
   },
   "src/shared/channels.mjs": {
     "lines": 98,

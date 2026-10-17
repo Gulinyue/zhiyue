@@ -9,8 +9,8 @@ import { createIpcGateway } from '../src/main/ipc/gateway.mjs';
 import { trustedInstallerDigest, verifyInstallerDigest } from '../src/main/updater/integrity.mjs';
 
 test('external portal permits only the configured exact origin', () => {
-  assert.equal(validatedPortalUrl('https://workclimb.top/subscribe'), 'https://workclimb.top/subscribe');
-  for (const target of ['javascript:alert(1)', 'file:///C:/Windows', 'https://workclimb.top.evil.test/', 'https://evil.test/', 'http://workclimb.top/', 'https://user@workclimb.top/']) {
+  assert.equal(validatedPortalUrl('https://github.com/Gulinyue/zhiyue'), 'https://github.com/Gulinyue/zhiyue');
+  for (const target of ['javascript:alert(1)', 'file:///C:/Windows', 'https://github.com.evil.test/', 'https://evil.test/', 'http://github.com/', 'https://user@github.com/']) {
     assert.throws(() => validatedPortalUrl(target));
   }
   assert.equal(validatedPortalUrl('http://localhost:8787/subscribe', 'http://localhost:8787'), 'http://localhost:8787/subscribe');
@@ -58,7 +58,7 @@ test('updates require an exact pinned URL and fail on modified installer bytes',
   const file = path.join(directory, 'installer.exe');
   const bytes = Buffer.from('MZ official release bytes');
   const digest = createHash('sha256').update(bytes).digest('hex');
-  const url = 'https://workclimb.top/download/Climb.exe';
+  const url = 'https://example.invalid/releases/Zhiyue-Setup.exe';
   assert.throws(() => trustedInstallerDigest(url, {}), /INTEGRITY_UNAVAILABLE/);
   assert.throws(() => trustedInstallerDigest(url + '?replacement=1', { [url]: digest }));
   assert.equal(trustedInstallerDigest(url, { [url]: digest }), digest);

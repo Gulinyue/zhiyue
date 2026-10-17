@@ -238,7 +238,7 @@ app.whenReady().then(async () => {
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.personalModels.load()'));
   const restore = await evaluate('window.api.window.setTaskSurface("idle", "preparation", false)');
   assert.equal(await evaluate(`window.api.window.commitTaskSurface(${restore})`), true);
-  assert.equal(await evaluate('window.api.app.downloadUpdate("https://workclimb.top/old.exe").then(r => r.status)'), 'unavailable');
+  assert.equal(await evaluate('window.api.app.downloadUpdate("https://example.invalid/installer.exe").then(r => r.status)'), 'unavailable');
   // Configure written preferences through the real settings form.
   await evaluate('document.querySelector("[data-page=settings]").click()');
   await waitFor(() => evaluate('!!document.querySelector("[data-written-settings]")'), 'written settings');
