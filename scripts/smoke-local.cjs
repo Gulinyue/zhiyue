@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, ipcMain, globalShortcut } = require('electron');
+const { app, BrowserWindow, session, ipcMain, globalShortcut, shell } = require('electron');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -11,6 +11,8 @@ process.env.CLIMB_USER_DATA_DIR = fs.mkdtempSync(path.join(root, '.runtime', 'lo
 const requests = [];
 const unexpectedNetwork = [];
 const errors = [];
+const externalUrls = [];
+shell.openExternal = async (url) => { externalUrls.push(url); };
 const shortcuts = new Map();
 const register = globalShortcut.register.bind(globalShortcut);
 globalShortcut.register = (accelerator, callback) => { const ok = register(accelerator, callback); if (ok) shortcuts.set(accelerator, callback); return ok; };
@@ -236,12 +238,21 @@ app.whenReady().then(async () => {
   const overlay = await waitFor(() => BrowserWindow.getAllWindows().find((win) => win !== main && !win.isDestroyed() && win.isVisible()), 'shortcut overlay');
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.workspace.list()'));
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.personalModels.load()'));
+  await assert.rejects(overlay.webContents.executeJavaScript('window.api.app.openSupport()'));
+  assert.equal(externalUrls.length, 0);
   const restore = await evaluate('window.api.window.setTaskSurface("idle", "preparation", false)');
   assert.equal(await evaluate(`window.api.window.commitTaskSurface(${restore})`), true);
   assert.equal(await evaluate('window.api.app.downloadUpdate("https://example.invalid/installer.exe").then(r => r.status)'), 'unavailable');
   // Configure written preferences through the real settings form.
   await evaluate('document.querySelector("[data-page=settings]").click()');
   await waitFor(() => evaluate('!!document.querySelector("[data-written-settings]")'), 'written settings');
+  await evaluate('document.querySelector("[data-support-developer]").click()');
+  await waitFor(() => externalUrls.length === 1, 'developer support opens browser');
+  assert.deepEqual(externalUrls, ['https://afdian.com/a/gulinyue618']);
+  await evaluate('document.querySelector("[data-about-brand]").scrollIntoView({block:"center"})');
+  await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+  fs.writeFileSync(path.join(artifacts, 'zhiyue-developer-support.png'), (await main.webContents.capturePage()).toPNG());
+  await evaluate('document.querySelector("[data-written-settings]").scrollIntoView({block:"start"})');
   await setValue('[data-written-setting=codingLanguage]', 'Go');
   await waitFor(() => evaluate('window.api.settings.get().then(s=>s.writtenOptions.codingLanguage === "Go")'), 'persisted coding language');
   await setValue('[data-written-setting=answerLanguage]', 'English');

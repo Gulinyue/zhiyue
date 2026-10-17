@@ -2436,6 +2436,7 @@ function registerIpc() {
   if (ipcRegistered) return;
   ipcRegistered = true;
   registerWorkspaceIpc(mainIpc);
+  mainIpc.handle(IPC.appOpenSupport, () => electron.shell.openExternal(BRAND.supportUrl));
   mainIpc.handle(IPC.writtenEnter, () => enterWrittenMode());
   mainIpc.handle(IPC.writtenExit, () => exitWrittenMode());
   mainIpc.handle(IPC.writtenStatus, () => writtenStatus());
