@@ -34,7 +34,7 @@
     "imports": []
   },
   "src/main/index.mjs": {
-    "lines": 3325,
+    "lines": 3363,
     "imports": [
       "./store/workspace.mjs",
       "./models/local-request.mjs",
@@ -70,23 +70,27 @@
       "../shared/written-options.mjs",
       "./models/chatgpt-adapter.mjs",
       "./models/native-adapters.mjs",
-      "./interview/service.mjs"
+      "./interview/service.mjs",
+      "../shared/interview-options.mjs"
     ]
   },
   "src/main/interview/service.mjs": {
-    "lines": 47,
+    "lines": 96,
     "imports": [
       "electron-store",
       "electron",
       "node:crypto",
       "../models/credentials.mjs",
-      "./transcription.mjs"
+      "./transcription.mjs",
+      "../models/validation.mjs",
+      "../../shared/speech-providers.mjs"
     ]
   },
   "src/main/interview/transcription.mjs": {
-    "lines": 51,
+    "lines": 57,
     "imports": [
-      "../models/validation.mjs"
+      "../models/validation.mjs",
+      "../../shared/speech-providers.mjs"
     ]
   },
   "src/main/ipc/gateway.mjs": {
@@ -265,7 +269,7 @@
     "imports": []
   },
   "src/preload/index.cjs": {
-    "lines": 176,
+    "lines": 181,
     "imports": []
   },
   "src/renderer/app.mjs": {
@@ -349,7 +353,7 @@
     ]
   },
   "src/renderer/local/app.mjs": {
-    "lines": 329,
+    "lines": 356,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../vendor/markdown.mjs",
@@ -385,14 +389,15 @@
     "imports": []
   },
   "src/renderer/local/live-interview.mjs": {
-    "lines": 130,
+    "lines": 140,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../vendor/markdown.mjs",
       "../../shared/interview-options.mjs",
       "../../shared/interview-audio.mjs",
       "./requests.mjs",
-      "./interview-capture.mjs"
+      "./interview-capture.mjs",
+      "../../shared/brand.mjs"
     ]
   },
   "src/renderer/local/model-card.mjs": {
@@ -403,7 +408,7 @@
     ]
   },
   "src/renderer/local/overlay.mjs": {
-    "lines": 32,
+    "lines": 33,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../../shared/window-shortcuts.mjs",
@@ -418,10 +423,11 @@
     ]
   },
   "src/renderer/local/speech-settings.mjs": {
-    "lines": 38,
+    "lines": 72,
     "imports": [
       "../vendor/react-icons-state.mjs",
-      "../../shared/interview-options.mjs"
+      "../../shared/interview-options.mjs",
+      "../../shared/speech-providers.mjs"
     ]
   },
   "src/renderer/local/window-controls.mjs": {
@@ -515,6 +521,10 @@
   },
   "src/shared/model-providers.mjs": {
     "lines": 32,
+    "imports": []
+  },
+  "src/shared/speech-providers.mjs": {
+    "lines": 16,
     "imports": []
   },
   "src/shared/window-shortcuts.mjs": {

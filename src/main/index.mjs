@@ -32,7 +32,8 @@ import { BRAND } from '../shared/brand.mjs';
 import { normalizeWrittenOptions } from '../shared/written-options.mjs';
 import { ChatGptPlanAdapter } from './models/chatgpt-adapter.mjs';
 import { discoverModels } from './models/native-adapters.mjs';
-import { speechConnection, saveSpeechConnection, removeSpeechConnection, startInterview, stopInterview, interviewIsActive, transcribeInterview } from './interview/service.mjs';
+import { speechConnection, saveSpeechConnection, removeSpeechConnection, startInterview, stopInterview, interviewIsActive, interviewHasSession, transcribeInterview, discoverSpeechModels, testSpeechConnection } from './interview/service.mjs';
+import { normalizeInterviewOptions } from '../shared/interview-options.mjs';
 // 知跃 / Zhiyue · Developed by gulinyue. See LICENSE.
 "use strict";
 const HOTKEY_ACTIONS = [
@@ -710,15 +711,22 @@ let taskSurfaceRevealTimer = null;
 let interactiveRevealTimer = null;
 let nativeWindowMode = "stealth";
 let writtenSessionActive = false;
+let interviewWindowActive = false;
+let interviewWindowSessionId = null;
 let writtenProtectionTimer = null;
+function passiveTaskKind() { return writtenSessionActive ? 'written' : interviewWindowActive ? 'interview' : null; }
+function passiveTaskOptions(kind = passiveTaskKind()) { const settings = getSettings(); return kind === 'interview' ? normalizeInterviewOptions(settings.interviewOptions) : normalizeWrittenOptions(settings.writtenOptions); }
 function mainProtectionRequired() {
-  return writtenSessionActive && process.platform === 'win32' || nativeWindowMode === 'stealth' && process.env.DEBUG_WINDOW !== '1' && process.env.DEBUG_WINDOW !== '2' && process.env.NO_CONTENT_PROTECTION !== '1';
+  return !!passiveTaskKind() && process.platform === 'win32' || nativeWindowMode === 'stealth' && process.env.DEBUG_WINDOW !== '1' && process.env.DEBUG_WINDOW !== '2' && process.env.NO_CONTENT_PROTECTION !== '1';
 }
 function protectionFailed(mode) {
   return process.platform === 'win32' ? mode !== 'exclude' : process.platform === 'darwin' && mode === 'failed';
 }
 function writtenStatus() {
-  return { active: writtenSessionActive, clickThrough: !windowInteractive, focusable: win?.isFocusable() ?? false, opacity: writtenSessionActive ? normalizeWrittenOptions(getSettings().writtenOptions).opacity : getSettings().opacity,
+  return passiveTaskStatus('written');
+}
+function passiveTaskStatus(kind) {
+  return { active: passiveTaskKind() === kind, clickThrough: !windowInteractive, focusable: win?.isFocusable() ?? false, opacity: passiveTaskKind() === kind ? passiveTaskOptions(kind).opacity : getSettings().opacity,
     captureProtection: process.platform === 'win32' && win ? getContentProtectionDirect(win) : 'not-windows' };
 }
 function resetWrittenProtection() {
@@ -730,11 +738,15 @@ function resetWrittenProtection() {
   }
 }
 function exitWrittenMode(error) {
-  if (!writtenSessionActive) return { ...writtenStatus(), token: null };
+  return exitPassiveTask('written', error);
+}
+function exitPassiveTask(kind, error) {
+  if (passiveTaskKind() !== kind) return { ...passiveTaskStatus(kind), token: null };
   // Abort both pending screenshots in the renderer (via changed) and model work.
-  for (const run of activePersonalModelRuns.values()) run.controller.abort('written-exit');
+  for (const run of activePersonalModelRuns.values()) run.controller.abort(`${kind}-exit`);
+  if (kind === 'interview') { stopInterview(); interviewWindowActive = false; interviewWindowSessionId = null; }
   win?.hide(); hideShortcutOverlay();
-  writtenSessionActive = false;
+  if (kind === 'written') writtenSessionActive = false;
   taskSurfaceRequestGeneration++;
   setTaskShortcutOverlayMode('idle', false);
   resetWrittenProtection();
@@ -742,38 +754,44 @@ function exitWrittenMode(error) {
   setInteractive(true); setFocusable(true);
   const token = prepareTaskWindowSurface('preparation', true);
   previewOpacity(getSettings().opacity);
-  const result = { ...writtenStatus(), token, ...(error ? { error } : {}) };
-  if (win && !win.webContents.isDestroyed()) win.webContents.send(IPC.writtenChanged, result);
+  const result = { ...passiveTaskStatus(kind), token, ...(error ? { error } : {}) };
+  if (win && !win.webContents.isDestroyed()) win.webContents.send(kind === 'written' ? IPC.writtenChanged : 'interview:windowChanged', result);
   return result;
 }
 function enterWrittenMode() {
-  if (writtenSessionActive) return { ...writtenStatus(), token: null };
+  return enterPassiveTask('written');
+}
+function enterPassiveTask(kind) {
+  if (passiveTaskKind() === kind) return { ...passiveTaskStatus(kind), token: null };
+  if (passiveTaskKind()) throw new Error('请先退出当前笔试或面试模式。');
+  if (kind === 'written' && interviewIsActive()) throw new Error('请先结束正在启动的面试。');
   if (!win || win.isDestroyed()) throw new Error('窗口尚未准备好');
+  const mode = kind === 'interview' ? 'interview' : 'exam', label = kind === 'interview' ? '面试' : '笔试';
   const previousMode = activeWorkMode;
-  setHotkeyWorkMode('exam');
+  setHotkeyWorkMode(mode);
   if (!registeredActions.has('exam:exit')) {
     setHotkeyWorkMode(previousMode);
-    throw new Error('退出笔试快捷键未注册成功，请在设置中修改后再开始');
+    throw new Error(`退出${label}快捷键未注册成功，请在设置中修改后再开始`);
   }
-  writtenSessionActive = true;
+  if (kind === 'written') writtenSessionActive = true; else interviewWindowActive = true;
   try {
     taskSurfaceRequestGeneration++;
-    setTaskShortcutOverlayMode('exam', false);
+    setTaskShortcutOverlayMode(mode, false);
     configureShortcutOverlaySecurity({ contentProtection: mainProtectionRequired(), harden: nativeWindowMode === 'stealth' && process.env.NO_HARDEN !== '1' });
     const token = prepareTaskWindowSurface('focus', true);
     setInteractive(false); setFocusable(false);
-    if (process.platform === 'win32' && applyStrictMainWindowProtection(win, 'written-enter') !== 'exclude') {
-      throw new Error('Windows 窗口捕获排除不可用，未进入笔试模式');
+    if (process.platform === 'win32' && applyStrictMainWindowProtection(win, `${kind}-enter`) !== 'exclude') {
+      throw new Error(`Windows 窗口捕获排除不可用，未进入${label}模式`);
     }
     setAnswerScrollHotkeysActive(true);
-    setTaskShortcutOverlayMode('exam', normalizeWrittenOptions(getSettings().writtenOptions).showShortcutHints);
-    previewOpacity(normalizeWrittenOptions(getSettings().writtenOptions).opacity);
+    setTaskShortcutOverlayMode(mode, passiveTaskOptions(kind).showShortcutHints);
+    previewOpacity(passiveTaskOptions(kind).opacity);
     if (process.platform === 'win32') writtenProtectionTimer = setInterval(() => {
-      if (!writtenSessionActive || !win || win.isDestroyed()) return;
-      if (getContentProtectionDirect(win) !== 'exclude' && applyStrictMainWindowProtection(win, 'written-recheck') !== 'exclude') exitWrittenMode('窗口捕获排除状态失效，已退出笔试模式');
+      if (passiveTaskKind() !== kind || !win || win.isDestroyed()) return;
+      if (getContentProtectionDirect(win) !== 'exclude' && applyStrictMainWindowProtection(win, `${kind}-recheck`) !== 'exclude') exitPassiveTask(kind, `窗口捕获排除状态失效，已退出${label}模式`);
     }, 2000);
-    return { ...writtenStatus(), token };
-  } catch (error) { exitWrittenMode(error.message); throw error; }
+    return { ...passiveTaskStatus(kind), token };
+  } catch (error) { exitPassiveTask(kind, error.message); throw error; }
 }
 const macOverlayVisibility = new MacOverlayVisibilityIntent();
 const TASK_EXIT_DWM_SETTLE_MS = 160;
@@ -827,7 +845,7 @@ function setMainRendererUnavailableHandler(handler) {
 }
 function failClosedForRendererLoss(owner, reason) {
   if (win !== owner) return;
-  const wasWritten = writtenSessionActive;
+  const previousKind = passiveTaskKind();
   clearRevealTimer("task");
   clearRevealTimer("interactive");
   pendingTaskSurfaceRevealToken = null;
@@ -835,13 +853,13 @@ function failClosedForRendererLoss(owner, reason) {
   pendingInteractiveRevealToken = null;
   focusResizeSession = null;
   if (!owner.isDestroyed() && owner.isVisible()) owner.hide();
-  if (wasWritten) {
-    writtenSessionActive = false;
+  if (previousKind) {
+    writtenSessionActive = false; interviewWindowActive = false; interviewWindowSessionId = null; stopInterview();
     resetWrittenProtection();
     if (!owner.isDestroyed()) {
       setInteractive(true); setFocusable(true); setWindowSurface('preparation');
       previewOpacity(getSettings().opacity);
-      if (!owner.webContents.isDestroyed()) owner.webContents.send(IPC.writtenChanged, { ...writtenStatus(), token: null, error: '笔试窗口未完成切换，已恢复普通模式；可从托盘重新显示。' });
+      if (!owner.webContents.isDestroyed()) owner.webContents.send(previousKind === 'written' ? IPC.writtenChanged : 'interview:windowChanged', { ...passiveTaskStatus(previousKind), token: null, error: '窗口未完成切换，已恢复普通模式；可从托盘重新显示。' });
     }
   }
   setShortcutOverlayMode("idle", owner, false);
@@ -1162,7 +1180,7 @@ function showMainWindowLikeToggleReveal() {
 }
 function showMainWindowInteractive() {
   if (!win) return;
-  if (writtenSessionActive) { showMainWindowLikeToggleReveal(); return; }
+  if (passiveTaskKind()) { showMainWindowLikeToggleReveal(); return; }
   if (process.platform === "darwin") macOverlayVisibility.requestShow();
   if (pendingTaskLaunchToken !== null || pendingTaskSurfaceRevealToken !== null) return;
   clearRevealTimer("interactive");
@@ -1300,7 +1318,7 @@ function restoreMainWindowAfterScreenshot() {
   showMainWindowLikeToggleReveal();
 }
 function showWindow() {
-  if (writtenSessionActive) { showMainWindowLikeToggleReveal(); return; }
+  if (passiveTaskKind()) { showMainWindowLikeToggleReveal(); return; }
   if (pendingTaskLaunchToken !== null || pendingTaskSurfaceRevealToken !== null) return;
   if (process.platform === "darwin") {
     showMainWindowPreservingInteraction();
@@ -1498,10 +1516,10 @@ function setOpacity(opacity) {
 }
 function adjustOpacity(delta) {
   const settings = getWindowBootstrapSettings();
-  if (writtenSessionActive) {
-    const writtenOptions = normalizeWrittenOptions({ ...settings.writtenOptions, opacity: settings.writtenOptions.opacity + delta });
-    const next = patchSettings({ writtenOptions });
-    previewOpacity(writtenOptions.opacity); broadcast(IPC.settingsChanged, next); return writtenOptions.opacity;
+  if (passiveTaskKind()) {
+    const kind = passiveTaskKind(), current = passiveTaskOptions(kind), opacity = Math.max(.15, Math.min(.85, current.opacity + delta));
+    const next = patchSettings({ [kind === 'written' ? 'writtenOptions' : 'interviewOptions']: { opacity } });
+    previewOpacity(opacity); broadcast(IPC.settingsChanged, next); return opacity;
   }
   const mouseThrough = !windowInteractive;
   const current = resolveWindowOpacity(settings, mouseThrough);
@@ -1515,7 +1533,7 @@ function adjustOpacity(delta) {
 }
 function previewOpacity(opacity) {
   if (!win) return 1;
-  const clamped = writtenSessionActive ? normalizeWrittenOptions({ opacity }).opacity : normalizeWindowOpacity(opacity);
+  const clamped = passiveTaskKind() ? normalizeWrittenOptions({ opacity }).opacity : normalizeWindowOpacity(opacity);
   if (!win.webContents.isDestroyed()) {
     win.webContents.send(IPC.windowOpacityPreviewed, clamped);
   }
@@ -1523,7 +1541,7 @@ function previewOpacity(opacity) {
   return clamped;
 }
 function setInteractive(interactive) {
-  if (writtenSessionActive && interactive) return;
+  if (passiveTaskKind() && interactive) return;
   if (!win || windowInteractive === interactive) return;
   if (interactive) {
     win.setIgnoreMouseEvents(false);
@@ -1533,7 +1551,7 @@ function setInteractive(interactive) {
   windowInteractive = interactive;
 }
 function setFocusable(focusable) {
-  if (writtenSessionActive && focusable) return;
+  if (passiveTaskKind() && focusable) return;
   if (!win) return;
   try {
     if (win.isFocusable() === focusable) return;
@@ -2126,7 +2144,8 @@ function setCapturing(next) {
 function onTrigger(action) {
   if (!isHotkeyAllowedForWorkMode(activeWorkMode, action)) return;
   if (writtenSessionActive && (action === 'exam:exit' || action === 'session:reset')) { exitWrittenMode(); return; }
-  if (writtenSessionActive && action === 'window:toggleMouseThrough') return;
+  if (interviewWindowActive && ['exam:exit', 'session:reset', 'listen:toggle'].includes(action)) { exitPassiveTask('interview'); return; }
+  if (passiveTaskKind() && action === 'window:toggleMouseThrough') return;
   const win2 = getWin();
   switch (action) {
     case "window:toggle":
@@ -2439,9 +2458,26 @@ function registerIpc() {
   registerWorkspaceIpc(mainIpc);
   mainIpc.handle('interview:connection', () => speechConnection());
   mainIpc.handle('interview:saveConnection', (_event, raw) => saveSpeechConnection(raw));
+  mainIpc.handle('interview:discoverModels', (_event, raw) => discoverSpeechModels(raw));
+  mainIpc.handle('interview:testConnection', (_event, raw) => testSpeechConnection(raw));
   mainIpc.handle('interview:removeConnection', () => removeSpeechConnection());
-  mainIpc.handle('interview:start', () => { if (writtenSessionActive) throw new Error('请先退出笔试模式。'); return startInterview(); });
-  mainIpc.handle('interview:stop', (_event, sessionId) => stopInterview(typeof sessionId === 'string' ? sessionId : undefined));
+  mainIpc.handle('interview:start', () => {
+    if (passiveTaskKind()) throw new Error('请先退出当前笔试或面试模式。');
+    const previousMode = activeWorkMode;
+    setHotkeyWorkMode('interview');
+    if (!registeredActions.has('exam:exit')) { setHotkeyWorkMode(previousMode); throw new Error('退出面试快捷键未注册成功，请在设置中修改后再开始。'); }
+    try { return startInterview(); } catch (error) { setHotkeyWorkMode(previousMode); throw error; }
+  });
+  mainIpc.handle('interview:enterWindow', (_event, sessionId) => {
+    if (!interviewHasSession(sessionId)) throw new Error('面试收音会话已结束。');
+    interviewWindowSessionId = sessionId;
+    try { return enterPassiveTask('interview'); } catch (error) { stopInterview(sessionId); interviewWindowSessionId = null; throw error; }
+  });
+  mainIpc.handle('interview:windowStatus', () => passiveTaskStatus('interview'));
+  mainIpc.handle('interview:stop', (_event, sessionId) => {
+    if (interviewWindowActive && (!sessionId || interviewWindowSessionId === sessionId)) return exitPassiveTask('interview');
+    stopInterview(typeof sessionId === 'string' ? sessionId : undefined);
+  });
   mainIpc.handle('interview:transcribe', (_event, raw) => transcribeInterview(raw));
   mainIpc.handle(IPC.appOpenSupport, () => electron.shell.openExternal(BRAND.supportUrl));
   mainIpc.handle(IPC.appOpenFeedback, () => electron.shell.openExternal(`mailto:${BRAND.feedbackEmail}?subject=${encodeURIComponent(`知跃 ${BRAND.version} Bug 反馈`)}`));
@@ -2487,6 +2523,7 @@ function registerIpc() {
     setSettings(s);
     const next = getSettings();
     if (writtenSessionActive) setTaskShortcutOverlayMode('exam', next.writtenOptions.showShortcutHints);
+    if (interviewWindowActive) setTaskShortcutOverlayMode('interview', next.interviewOptions.showShortcutHints);
     syncAppTrayVisibility(next);
     broadcast(IPC.settingsChanged, next);
     registerHotkeys(() => {
@@ -2496,6 +2533,7 @@ function registerIpc() {
   mainIpc.handle(IPC.settingsPatch, (_e, patch) => {
     const merged = patchSettings(patch);
     if (writtenSessionActive && patch.writtenOptions) setTaskShortcutOverlayMode('exam', merged.writtenOptions.showShortcutHints);
+    if (interviewWindowActive && patch.interviewOptions) setTaskShortcutOverlayMode('interview', merged.interviewOptions.showShortcutHints);
     if (patch.hideTrayIcon !== void 0) syncAppTrayVisibility(merged);
     broadcast(IPC.settingsChanged, merged);
     if (patch.hotkeys || patch.doubleClickScreenshotEnabled !== void 0 || patch.quadrupleClickScreenshotEnabled !== void 0 || patch.longPressScreenshotEnabled !== void 0) registerHotkeys(() => {
@@ -2770,12 +2808,12 @@ function registerIpc() {
     (_e, payload) => setExpanded(payload.expanded)
   );
   mainIpc.handle(IPC.windowSetSurface, (_e, rawSurface) => {
-    if (writtenSessionActive) return;
+    if (passiveTaskKind()) return;
     if (!isWindowSurface(rawSurface)) return;
     setWindowSurface(rawSurface);
   });
   mainIpc.handle(IPC.windowSetTaskSurface, (event, raw) => {
-    if (writtenSessionActive) throw new Error('请先使用退出笔试快捷键结束笔试模式');
+    if (passiveTaskKind()) throw new Error('请先使用退出快捷键结束笔试或面试模式');
     const host = getWin();
     if (!host || host.isDestroyed() || event.sender.id !== host.webContents.id) return;
     if (!raw || typeof raw !== "object") return;
@@ -2831,7 +2869,7 @@ function registerIpc() {
     const host = getWin();
     if (!host || host.isDestroyed() || event.sender.id !== host.webContents.id) return;
     const mode = isWorkMode(rawMode) ? rawMode : "idle";
-    if (writtenSessionActive && mode !== 'exam') return;
+    if (passiveTaskKind()) return;
     taskSurfaceRequestGeneration += 1;
     setHotkeyWorkMode(mode);
     setTaskShortcutOverlayMode(mode);

@@ -5,10 +5,11 @@ import { normalizeInterviewOptions } from '../../shared/interview-options.mjs';
 import { TranscriptionQueue } from '../../shared/interview-audio.mjs';
 import { buildLocalRequest, chooseModelSlot } from './requests.mjs';
 import { SystemAudioCapture } from './interview-capture.mjs';
+import { BRAND } from '../../shared/brand.mjs';
 const h = React.createElement, api = window.api;
 const uid = () => crypto.randomUUID();
 const fresh = () => ({ id: uid(), title: '', mode: 'interview', updatedAt: Date.now(), messages: [] });
-export function LiveInterview({ settings, models, documents, seed, report, configure }) {
+export function LiveInterview({ settings, models, documents, seed, report, configure, passive, onStarted }) {
   const [conversation, setConversation] = React.useState(() => seed || fresh());
   const [draft, setDraft] = React.useState('');
   const [listening, setListening] = React.useState(false);
@@ -90,17 +91,23 @@ export function LiveInterview({ settings, models, documents, seed, report, confi
       const capture = new SystemAudioCapture({ ...latest.current.options, onSegment: (segment) => pipeline.push(segment), onLevel: (rms) => { if (alive.current && epoch.current === generation) setLevel(Math.min(1, rms * 8)); }, onError: (error) => { if (alive.current && epoch.current === generation) { stopAudio(); latest.current.report(error.message); } } });
       recording.current = { sessionId, capture, pipeline };
       const started = await capture.start();
-      if (started && alive.current && epoch.current === generation) setListening(true);
+      if (started && alive.current && epoch.current === generation) {
+        const state = await api.interview.enterWindow(sessionId);
+        if (!alive.current || epoch.current !== generation) { void api.interview.stop(sessionId); return; }
+        setListening(true);
+        await onStarted(state);
+      }
     } catch (error) {
-      if (epoch.current === generation) { end(); if (sessionId) void api.interview.stop(sessionId); latest.current.report(error.message.includes('Permission') || error.name === 'NotAllowedError' ? '系统收音未获许可，请点击开始并检查 Windows 的音频权限。' : ['NotFoundError', 'NotReadableError'].includes(error.name) ? '无法启动系统收音，请检查 Windows 默认播放设备并重新开始。' : error.message); }
+      if (epoch.current === generation) { end(); if (sessionId) void api.interview.stop(sessionId); latest.current.report(error.message.includes('Permission') || error.name === 'NotAllowedError' ? '系统收音未获许可，请点击开始并检查 Windows 的音频权限。' : ['NotFoundError', 'NotReadableError'].includes(error.name) ? '无法启动系统收音，请检查 Windows 默认播放设备并重新开始。' : error.message); configure(); }
     } finally { if (alive.current && epoch.current === generation) setStarting(false); }
   }
-  actions.current = { start, end };
+  actions.current = { start, end, answerCurrent: () => answer(draft) };
   React.useEffect(() => {
     alive.current = true;
     const unsubscribe = api.hotkey.onTriggered((action) => {
       if (action === 'listen:toggle') { if (recording.current) actions.current.end(); else void actions.current.start(); }
       else if (action === 'exam:exit' || action === 'session:reset') actions.current.end();
+      else if (action === 'llm:resendHistory') actions.current.answerCurrent();
       else if (action === 'answer:scrollUp' || action === 'answer:scrollDown') { follow.current = false; thread.current?.scrollBy({ top: action.endsWith('Up') ? -240 : 240, behavior: 'instant' }); }
       else if (action === 'answer:scrollLeft' || action === 'answer:scrollRight') {
         const root = thread.current; if (!root) return;
@@ -110,19 +117,22 @@ export function LiveInterview({ settings, models, documents, seed, report, confi
       }
       else if (action === 'interview:clearContext') { actions.current.end(); update(fresh()); setDraft(''); }
     });
+    void actions.current.start();
     return () => { alive.current = false; unsubscribe(); actions.current.end(); };
   }, []);
   React.useEffect(() => { if (follow.current) thread.current?.scrollTo({ top: thread.current.scrollHeight, behavior: 'auto' }); }, [conversation.messages]);
   return h('div', { className: 'chat-layout live-interview', 'data-live-interview': true, 'data-listening': listening },
-    h('div', { className: 'interview-toolbar no-drag' },
+    passive && options.showShortcutHints && h('div', { className: 'written-passive-banner' }, h('span', null, pending ? '面试中 · 正在转写' : '面试中 · 仅系统声音 · 鼠标穿透'), h('kbd', null, `${settings?.hotkeys?.['exam:exit'] || 'Ctrl+Shift+Z'} 退出`), !options.autoAnswer && h('kbd', null, `${settings?.hotkeys?.['llm:resendHistory'] || 'Alt+C'} 回答当前问题`)),
+    !passive && h('div', { className: 'interview-toolbar no-drag' },
       h('div', null, h('strong', null, '实时面试'), h('p', null, listening ? pending ? '正在转写系统声音…' : '正在聆听面试官 · 仅系统声音' : starting ? '正在连接系统收音…' : '系统收音 → 分句转写 → 自动生成回答')),
       h('div', { className: 'row wrap' }, h('span', { className: listening ? 'listening-dot active' : 'listening-dot', 'aria-label': listening ? '收音中' : '未收音' }), h('meter', { min: 0, max: 1, value: level, 'aria-label': '系统声音电平' }),
         h('button', { type: 'button', className: 'primary', 'data-interview-toggle': true, onClick: () => listening || starting ? end() : start() }, listening || starting ? '结束面试' : '开始监听系统声音'),
         h('button', { type: 'button', onClick: configure }, '语音与回答设置'))),
     h('div', { className: 'chat-thread', ref: thread, onScroll: () => { const el = thread.current; if (el) follow.current = el.scrollHeight - el.clientHeight - el.scrollTop < 32; } },
-      !conversation.messages.length && h('div', { className: 'interview-welcome' }, h('h1', null, '听清问题，理顺回答。'), h('p', null, '先在设置中配置语音转写服务与文字问答模型，然后开始监听。面试官说完一句后，问题会自动转写并生成参考回答。'), h('p', { className: 'muted small' }, `不使用麦克风，不保存原始录音。${settings?.hotkeys?.['listen:toggle'] || 'Ctrl+3'} 开始 / 结束；关闭页面会停止收音。长问题分段转写，停顿后合并回答。`)),
+      !conversation.messages.length && h('div', { className: 'interview-welcome written-welcome' }, h('img', { src: './assets/logo.svg', alt: BRAND.name, className: 'written-logo' }), h('h1', null, listening ? '正在聆听面试官' : '正在准备系统收音…'), h('p', null, '面试官说完后，问题转写和参考回答会出现在这里。'), options.showShortcutHints && h('p', { className: 'muted small' }, `${settings?.hotkeys?.['exam:exit'] || 'Ctrl+Shift+Z'} 退出并恢复设置 · 不使用麦克风`)),
       ...conversation.messages.map((message) => h('article', { className: `message ${message.role}`, key: message.id }, h('div', { className: 'message-label' }, message.role === 'user' ? '面试官问题' : '参考回答', message.status !== 'completed' && h('span', null, message.status === 'cancelled' ? ' · 已停止' : ' · 未完成')), h(MarkdownBody, { markdown: message.text || '正在组织回答…' })))),
-    h('div', { className: 'composer-wrap' }, h('form', { className: 'composer', onSubmit: (event) => { event.preventDefault(); answer(draft); } },
+    passive && draft && h('div', { className: 'interview-transcript' }, h('span', null, options.autoAnswer ? '问题转写' : `问题转写 · ${settings?.hotkeys?.['llm:resendHistory'] || 'Alt+C'} 生成回答`), h('p', null, draft)),
+    !passive && h('div', { className: 'composer-wrap' }, h('form', { className: 'composer', onSubmit: (event) => { event.preventDefault(); answer(draft); } },
       h('textarea', { value: draft, maxLength: 12000, rows: 2, 'aria-label': '面试问题转写', onChange: (e) => setDraft(e.target.value), placeholder: '语音转写将出现在这里，也可以手动修正问题再回答…' }),
       h('div', { className: 'row between' }, h('span', { className: 'muted small' }, `${options.autoAnswer ? '已开启自动回答' : '手动确认后回答'}${queued ? ` · ${queued} 个问题等待回答` : ''}`), h('div', { className: 'row' }, busy && h('button', { type: 'button', onClick: () => { if (active.current) { active.current.cancelled = true; void api.personalModels.cancel(active.current.id); } } }, '停止当前回答'), h('button', { type: 'submit', className: 'primary', disabled: !draft.trim() }, '回答这个问题')))),
       h('p', { className: 'composer-note' }, '收音仅在点击开始后进行；语音片段发送给你配置的转写服务，问题和匹配资料发送给回答模型。文字会话保存在本机。')));

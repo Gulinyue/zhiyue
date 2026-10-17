@@ -1,5 +1,6 @@
 // 知跃 · Developed by gulinyue. Audio is held in memory and never written to disk.
 import { normalizePersonalModelBaseUrl, isLoopbackHostname } from '../models/validation.mjs';
+import { speechProvider, inferSpeechProvider } from '../../shared/speech-providers.mjs';
 export const AUDIO_RATE = 16000;
 export const MAX_AUDIO_BYTES = AUDIO_RATE * 2 * 21;
 export function normalizeSpeechProfile(raw) {
@@ -9,7 +10,9 @@ export function normalizeSpeechProfile(raw) {
   const model = typeof raw.model === 'string' ? raw.model.trim() : '';
   if (!model || model.length > 200 || /[\s\u0000-\u001f]/u.test(model)) throw new Error('请填写有效的语音模型 ID。');
   const language = typeof raw.language === 'string' && /^[a-z]{2,3}$/.test(raw.language) ? raw.language : '';
-  return { baseUrl, model, language, prompt: typeof raw.prompt === 'string' ? raw.prompt.replaceAll('\0', '').slice(0, 1000) : '' };
+  const providerId = raw.providerId ?? inferSpeechProvider(baseUrl);
+  if (!speechProvider(providerId)) throw new Error('请选择支持的语音模型来源。');
+  return { providerId, baseUrl, model, language, prompt: typeof raw.prompt === 'string' ? raw.prompt.replaceAll('\0', '').slice(0, 1000) : '' };
 }
 export function speechRequiresKey(profile) { return !isLoopbackHostname(new URL(profile.baseUrl).hostname); }
 export function pcmToWav(raw) {
@@ -25,9 +28,12 @@ export async function transcribeAudio(rawProfile, apiKey, pcm, { signal, fetchIm
   if (speechRequiresKey(profile) && !apiKey) throw new Error('语音服务尚未配置 API Key。');
   const wav = pcmToWav(pcm);
   const body = new FormData();
-  body.append('file', new Blob([wav], { type: 'audio/wav' }), 'question.wav'); body.append('model', profile.model); body.append('response_format', 'json');
-  if (profile.language) body.append('language', profile.language);
-  if (profile.prompt) body.append('prompt', profile.prompt);
+  body.append('file', new Blob([wav], { type: 'audio/wav' }), 'question.wav'); body.append('model', profile.model);
+  if (!speechProvider(profile.providerId).minimalForm) {
+    body.append('response_format', 'json');
+    if (profile.language) body.append('language', profile.language);
+    if (profile.prompt) body.append('prompt', profile.prompt);
+  }
   const controller = new AbortController();
   const onAbort = () => controller.abort();
   if (signal?.aborted) controller.abort(); else signal?.addEventListener('abort', onAbort, { once: true });
