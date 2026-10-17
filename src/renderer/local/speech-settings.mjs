@@ -17,6 +17,7 @@ export function SpeechSettings({ settings, patchSettings, report, start }) {
   const [result, setResult] = React.useState('');
   const options = normalizeInterviewOptions(settings?.interviewOptions);
   const provider = speechProvider(providerId);
+  const automaticLanguage = provider.minimalForm || provider.supportsLanguage === false;
   const choices = [...new Map([...speechModelChoices(providerId), ...discovered].map(item => [item.id, item])).values()];
   const patch = (value) => patchSettings({ interviewOptions: value });
   React.useEffect(() => { let alive = true; window.api.interview.connection().then((value) => { if (!alive) return; setConnection(value); if (value.profile) { setProviderId(value.profile.providerId || inferSpeechProvider(value.profile.baseUrl)); setBaseUrl(value.profile.baseUrl); setModel(value.profile.model); setLanguage(value.profile.language); setHotwords(value.profile.prompt); } }).catch((error) => report(error.message)); return () => { alive = false; }; }, []);
@@ -45,8 +46,8 @@ export function SpeechSettings({ settings, patchSettings, report, start }) {
         field('语音服务 Base URL', h('input', { value: baseUrl, 'data-speech-field': 'base', placeholder: 'https://服务地址/v1 或完整转写地址', onChange: edit((value) => { setBaseUrl(value); setApiKey(''); setDiscovered([]); }), spellCheck: false })),
         field('选择语音模型', h('select', { value: choices.some(item => item.id === model) ? model : '', 'data-speech-field': 'preset', onChange: edit(setModel) }, h('option', { value: '', disabled: true }, '手动填写或获取模型列表'), ...choices.map(item => h('option', { key: item.id, value: item.id }, `${item.name} · ${item.id}`)))),
         field('模型 ID（支持手动填写）', h('input', { value: model, 'data-speech-field': 'model', onChange: edit(setModel), spellCheck: false })),
-        field('语音 API Key（本机无认证服务可留空）', h('input', { type: 'password', value: apiKey, 'data-speech-field': 'key', placeholder: connection.credential?.boundBaseUrl === baseUrl.replace(/\/audio\/transcriptions\/?$/i, '').replace(/\/$/, '') ? `已保存 ····${connection.credential.lastFour}，留空保留` : '此地址专用的 API Key', onChange: edit(setApiKey), autoComplete: 'off' })),
-        field('面试官说话语言', h('select', { disabled: provider.minimalForm, value: language, 'data-speech-field': 'language', onChange: edit(setLanguage) }, h('option', { value: 'zh' }, '中文'), h('option', { value: 'en' }, 'English'), h('option', { value: '' }, '自动识别')))),
+        field('语音 API Key（本机无认证服务可留空）', h('input', { type: 'password', value: apiKey, 'data-speech-field': 'key', placeholder: connection.credential?.boundBaseUrl === baseUrl.trim().replace(/\/(?:audio\/transcriptions|chat\/completions)\/?$/i, '').replace(/\/$/, '') ? `已保存 ····${connection.credential.lastFour}，留空保留` : '此地址专用的 API Key', onChange: edit(setApiKey), autoComplete: 'off' })),
+        field('面试官说话语言', h('select', { disabled: automaticLanguage, value: automaticLanguage ? '' : language, 'data-speech-field': 'language', onChange: edit(setLanguage) }, h('option', { value: 'zh' }, '中文'), h('option', { value: 'en' }, 'English'), h('option', { value: '' }, '自动识别')))),
       h('p', { className: 'muted small', 'data-speech-help': true }, provider.help),
       field('识别热词或转写提示（最多 1000 字）', h('textarea', { disabled: provider.minimalForm, rows: 2, value: hotwords, maxLength: 1000, onChange: edit(setHotwords), placeholder: '例如：Redis、Spring Boot、Kubernetes、项目名称…' })),
       h('div', { className: 'row wrap' },

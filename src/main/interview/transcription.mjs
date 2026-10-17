@@ -27,27 +27,43 @@ export async function transcribeAudio(rawProfile, apiKey, pcm, { signal, fetchIm
   const profile = normalizeSpeechProfile(rawProfile);
   if (speechRequiresKey(profile) && !apiKey) throw new Error('语音服务尚未配置 API Key。');
   const wav = pcmToWav(pcm);
-  const body = new FormData();
-  body.append('file', new Blob([wav], { type: 'audio/wav' }), 'question.wav'); body.append('model', profile.model);
-  if (!speechProvider(profile.providerId).minimalForm) {
-    body.append('response_format', 'json');
-    if (profile.language) body.append('language', profile.language);
-    if (profile.prompt) body.append('prompt', profile.prompt);
+  const provider = speechProvider(profile.providerId);
+  let body, endpoint = `${profile.baseUrl}/audio/transcriptions`;
+  const headers = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
+  if (provider.protocol === 'qwen-asr') {
+    endpoint = `${profile.baseUrl}/chat/completions`;
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify({ model: profile.model, stream: false,
+      messages: [...(profile.prompt ? [{ role: 'system', content: profile.prompt }] : []), { role: 'user', content: [{ type: 'input_audio', input_audio: { data: `data:audio/wav;base64,${wav.toString('base64')}` } }] }],
+      asr_options: { enable_itn: false, ...(profile.language ? { language: profile.language } : {}) } });
+  } else {
+    body = new FormData();
+    body.append('file', new Blob([wav], { type: 'audio/wav' }), 'question.wav'); body.append('model', profile.model);
+    if (provider.protocol === 'glm-asr') {
+      body.append('stream', 'false');
+      if (profile.prompt) body.append('prompt', profile.prompt);
+    } else if (!provider.minimalForm) {
+      body.append('response_format', 'json');
+      if (profile.language) body.append('language', profile.language);
+      if (profile.prompt) body.append('prompt', profile.prompt);
+    }
   }
   const controller = new AbortController();
   const onAbort = () => controller.abort();
   if (signal?.aborted) controller.abort(); else signal?.addEventListener('abort', onAbort, { once: true });
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetchImpl(`${profile.baseUrl}/audio/transcriptions`, { method: 'POST', headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {}, body, redirect: 'error', signal: controller.signal });
+    const response = await fetchImpl(endpoint, { method: 'POST', headers, body, redirect: 'error', signal: controller.signal });
     if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? '语音服务鉴权失败，请检查 API Key 和权限。' : response.status === 429 ? '语音服务限流或额度不足，请稍后重试。' : `语音转写失败（HTTP ${response.status}），请检查服务与模型配置。`);
     let size = 0, result = '';
     const decoder = new TextDecoder();
     for await (const chunk of response.body) { size += chunk.byteLength; if (size > 128 * 1024) { controller.abort(); throw new Error('语音服务返回内容过大。'); } result += decoder.decode(chunk, { stream: true }); }
     result += decoder.decode();
     const parsed = JSON.parse(result);
-    if (typeof parsed.text !== 'string' || parsed.text.length > 12000) throw new Error('语音服务返回了无效的转写结果。');
-    return parsed.text.trim();
+    const text = provider.protocol === 'qwen-asr' ? parsed.choices?.[0]?.message?.content : parsed.text;
+    if (provider.protocol === 'qwen-asr' && parsed.choices?.[0]?.finish_reason !== 'stop') throw new Error('语音转写未正常完成，请检查模型和服务。');
+    if (typeof text !== 'string' || text.length > 12000) throw new Error('语音服务返回了无效的转写结果。');
+    return text.trim();
   } catch (error) {
     if (controller.signal.aborted) throw new Error(signal?.aborted ? '语音转写已停止。' : '语音转写超时，请检查网络或切换服务。');
     if (error instanceof Error && /语音/.test(error.message)) throw error;

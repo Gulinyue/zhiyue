@@ -49,7 +49,7 @@ export async function discoverSpeechModels(raw) {
   if (!Array.isArray(rows)) throw new Error('服务未返回有效的模型列表，请手动填写。');
   const providerId = raw.providerId || inferSpeechProvider(baseUrl);
   const choices = rows.slice(0, 1000).filter((value) => typeof value === 'string' || (value && typeof value === 'object')).map((value) => ({ id: typeof value === 'string' ? value : value.id || value.name, name: typeof value === 'string' ? value : value.display_name || value.name || value.id })).filter((value) => typeof value.id === 'string' && value.id.length > 0 && value.id.length <= 200);
-  return [...new Map(choices.filter((value) => ['local', 'custom'].includes(providerId) || isSpeechModel(value.id)).map((value) => [value.id, { id: value.id, name: typeof value.name === 'string' ? value.name.slice(0, 200) : value.id }])).values()];
+  return [...new Map(choices.filter((value) => ['local', 'custom'].includes(providerId) || isSpeechModel(value.id, providerId)).map((value) => [value.id, { id: value.id, name: typeof value.name === 'string' ? value.name.slice(0, 200) : value.id }])).values()];
   } catch (error) {
     if (error instanceof Error && /^(模型列表|此服务未提供|服务未返回)/.test(error.message)) throw error;
     throw new Error('无法获取模型列表，请检查网络，或使用预设及手动填写模型 ID。');

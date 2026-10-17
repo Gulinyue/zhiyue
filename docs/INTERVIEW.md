@@ -14,9 +14,16 @@
 
 ## 服务与配置
 
-提供 OpenAI、Groq、硅基流动、Together AI、本机 Whisper 兼容服务及自定义接口预设。切换服务商自动填充地址和模型候选；可获取模型列表、选择模型或手动填写 ID。预设不保证账号有权限，建议测试后保存。模型列表不可用时仍可直接填写模型。
+提供千问百炼（北京/新加坡）、智谱 GLM-ASR、硅基流动、OpenAI、Groq、Together AI、本机 Whisper 兼容服务及自定义接口预设。切换服务商自动填充地址和模型候选；可获取模型列表、选择模型或手动填写 ID。预设不保证账号有权限，建议测试后保存。模型列表不可用时仍可直接填写模型。
 
-采用 OpenAI 兼容的 POST /audio/transcriptions，上传 file、model，通常附带 response_format=json、可选 language 与 prompt；硅基流动按其文档只发送 file/model，界面禁用不支持的语言和热词设置。服务需支持 16 kHz PCM WAV，并返回 JSON text。本机接口可以无认证，远端必须使用 HTTPS 和独立 Key。ChatGPT 套餐授权不用于语音转写。
+各服务按自己的语音协议调用：
+
+- 千问百炼：qwen3-asr-flash，使用 compatible-mode/v1/chat/completions，内存 WAV 编码为 Base64 音频输入；语言通过 asr_options 发送，热词作为识别上下文。北京和新加坡分别使用对应地域的 Key，也支持控制台提供的业务空间专属地址。模型列表排除异步 Filetrans 等不适用型号。
+- 智谱：glm-asr-2512，使用 api/paas/v4/audio/transcriptions，发送 file、model、stream=false 及可选 prompt；自动识别语言，单片最多 21 秒，低于其 30 秒限制。使用标准 API Key 和语音模型权限，不使用 Coding Plan 专用接口。
+- 硅基流动：只发送 file/model，界面禁用不支持的语言和热词设置。
+- 其余兼容服务：POST /audio/transcriptions，上传 file、model、response_format=json，可选 language 与 prompt，读取 JSON text。
+
+服务需接受 16 kHz PCM WAV。本机接口可无认证，远端须 HTTPS 和独立 Key；ChatGPT 套餐授权不用于语音转写。
 
 “测试并保存”发送 0.5 秒合成音验证上传和响应，不访问音频设备，服务商可能计费；只在成功后保存，失败保留原配置。该测试不评估真实语音识别质量，也可选择直接保存。
 
@@ -28,8 +35,8 @@
 
 ## 验证与体验
 
-单元测试覆盖 WAV、分句、长问题合并、取消、队列、地址、错误脱敏、服务商迁移及参数差异。Electron 集成测试使用真实 AudioWorklet、合成音源和本机模拟服务，验证自动进入、原生窗口捕获排除和穿透、保护恢复、快捷键、提示栏开关、模型发现、连接测试与失败保留配置、自动/手动回答、历史和退出释放。
+单元测试覆盖 WAV、分句、长问题合并、取消、队列、地址、错误脱敏、服务商迁移、千问 Base64 音频请求、智谱原生字段及参数差异。Electron 集成测试使用真实 AudioWorklet、合成音源和本机模拟服务，验证自动进入、原生窗口捕获排除和穿透、保护恢复、快捷键、提示栏开关、千问/智谱原生协议的模拟请求、模型发现、连接测试与失败保留配置、自动/手动回答、历史和退出释放。
 
 未在用户的真实音频设备、真实面试声音或付费语音服务上验收。背景音乐、音量和网络延迟影响识别和回答，可调整灵敏度、停顿时长或使用手动提交。
 
-接口依据：[OpenAI](https://developers.openai.com/api/docs/guides/speech-to-text)、[Groq](https://console.groq.com/docs/speech-to-text)、[硅基流动](https://docs.siliconflow.cn/docs/api/audio-transcriptions-post)、[Together AI](https://docs.together.ai/docs/inference/transcription/overview)、[Electron 系统收音](https://www.electronjs.org/docs/latest/api/session#sessetdisplaymediarequesthandlerhandler-opts)。
+接口依据：[千问百炼](https://help.aliyun.com/zh/model-studio/qwen-asr-api-reference)、[智谱 GLM-ASR](https://docs.bigmodel.cn/cn/guide/models/sound-and-video/glm-asr-2512)、[OpenAI](https://developers.openai.com/api/docs/guides/speech-to-text)、[Groq](https://console.groq.com/docs/speech-to-text)、[硅基流动](https://docs.siliconflow.cn/docs/api/audio-transcriptions-post)、[Together AI](https://docs.together.ai/docs/inference/transcription/overview)、[Electron 系统收音](https://www.electronjs.org/docs/latest/api/session#sessetdisplaymediarequesthandlerhandler-opts)。

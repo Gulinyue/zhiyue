@@ -87,7 +87,7 @@
     ]
   },
   "src/main/interview/transcription.mjs": {
-    "lines": 57,
+    "lines": 73,
     "imports": [
       "../models/validation.mjs",
       "../../shared/speech-providers.mjs"
@@ -423,7 +423,7 @@
     ]
   },
   "src/renderer/local/speech-settings.mjs": {
-    "lines": 72,
+    "lines": 73,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../../shared/interview-options.mjs",
@@ -524,7 +524,7 @@
     "imports": []
   },
   "src/shared/speech-providers.mjs": {
-    "lines": 16,
+    "lines": 30,
     "imports": []
   },
   "src/shared/window-shortcuts.mjs": {

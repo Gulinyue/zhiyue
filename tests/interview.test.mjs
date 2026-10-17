@@ -84,3 +84,42 @@ test('SiliconFlow receives only its documented file/model fields', async () => {
     assert.deepEqual([...init.body.keys()].sort(), ['file', 'model']); return Response.json({ text: '测试' });
   } });
 });
+
+test('Qwen ASR sends bounded WAV inline to audio chat with language and context', async () => {
+  const profile = { providerId: 'dashscope', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', model: 'qwen3-asr-flash', language: 'zh', prompt: 'Redis、知跃' };
+  const result = await transcribeAudio(profile, 'mock-qwen-key', new Uint8Array(3200), { fetchImpl: async (url, init) => {
+    assert.equal(url, 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions');
+    assert.equal(init.headers.Authorization, 'Bearer mock-qwen-key'); assert.equal(init.headers['Content-Type'], 'application/json'); assert.equal(init.redirect, 'error');
+    const body = JSON.parse(init.body); assert.equal(body.stream, false); assert.equal(body.messages[0].role, 'system'); assert.equal(body.messages[0].content, profile.prompt);
+    assert.deepEqual(body.asr_options, { enable_itn: false, language: 'zh' });
+    const audio = body.messages[1].content[0]; assert.equal(audio.type, 'input_audio');
+    assert.ok(audio.input_audio.data.startsWith('data:audio/wav;base64,'));
+    const wav = Buffer.from(audio.input_audio.data.split(',')[1], 'base64'); assert.equal(wav.toString('ascii', 0, 4), 'RIFF'); assert.equal(wav.readUInt32LE(24), 16000);
+    assert.equal(wav.length, 3244); assert.equal(body.file, undefined);
+    return Response.json({ choices: [{ finish_reason: 'stop', message: { content: '解释 Redis。' } }] });
+  } }); assert.equal(result, '解释 Redis。');
+});
+test('Qwen auto language omits language/context and rejects interrupted or malformed results', async () => {
+  const profile = { providerId: 'dashscope-intl', baseUrl: 'https://workspace.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1', model: 'qwen3-asr-flash', language: '' };
+  for (const choice of [{ finish_reason: 'length', message: { content: 'partial' } }, { finish_reason: 'stop', message: { content: null } }, { finish_reason: 'stop', message: { content: 'x'.repeat(12001) } }]) {
+    await assert.rejects(transcribeAudio(profile, 'mock-qwen-key', new Uint8Array(3200), { fetchImpl: async (url, init) => {
+      assert.equal(url, profile.baseUrl + '/chat/completions');const body = JSON.parse(init.body);assert.deepEqual(body.asr_options, { enable_itn: false }); assert.equal(body.messages.length, 1);
+      return Response.json({ choices: [choice] });
+    } }), /语音/);
+  }
+});
+test('GLM ASR uses its native multipart fields and automatic language detection', async () => {
+  const result = await transcribeAudio({ providerId: 'zhipu', baseUrl: 'https://open.bigmodel.cn/api/paas/v4/audio/transcriptions', model: 'glm-asr-2512', language: 'zh', prompt: '上文提到了 Redis' }, 'mock-glm-key', new Uint8Array(3200), { fetchImpl: async (url, init) => {
+    assert.equal(url, 'https://open.bigmodel.cn/api/paas/v4/audio/transcriptions'); assert.equal(init.headers.Authorization, 'Bearer mock-glm-key');
+    assert.deepEqual([...init.body.keys()].sort(), ['file', 'model', 'prompt', 'stream']); assert.equal(init.body.get('stream'), 'false'); assert.equal(init.body.get('prompt'), '上文提到了 Redis');
+    return Response.json({ text: '这是转写。' });
+  } }); assert.equal(result, '这是转写。');
+});
+test('domestic discovery excludes asynchronous Qwen models and recognizes workspace region', () => {
+  assert.equal(inferSpeechProvider('https://workspace.cn-beijing.maas.aliyuncs.com/compatible-mode/v1'), 'dashscope');
+  assert.equal(inferSpeechProvider('https://workspace.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1'), 'dashscope-intl');
+  assert.equal(inferSpeechProvider('https://workspace.cn-beijing.maas.aliyuncs.com.attacker.test/compatible-mode/v1'), 'custom');
+  assert.equal(isSpeechModel('qwen3-asr-flash', 'dashscope'), true); assert.equal(isSpeechModel('qwen3-asr-flash-2025-09-08', 'dashscope'), true);
+  for (const model of ['qwen3-asr-flash-filetrans', 'qwen3-asr-flash-realtime', 'qwen-plus', 'whisper-1']) assert.equal(isSpeechModel(model, 'dashscope'), false);
+  assert.equal(isSpeechModel('glm-asr-2512', 'zhipu'), true); assert.equal(isSpeechModel('glm-5', 'zhipu'), false);
+});

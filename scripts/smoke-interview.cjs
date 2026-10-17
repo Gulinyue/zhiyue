@@ -11,6 +11,7 @@ process.env.ZHIYUE_USER_DATA_DIR = fs.mkdtempSync(path.join(root, '.runtime', 'i
 const errors = [], external = [], network = [], questions = [];
 const shortcuts = new Map(), register = globalShortcut.register.bind(globalShortcut);
 globalShortcut.register = (key, handler) => { const ok = register(key, handler); if (ok) shortcuts.set(key, handler); return ok; };
+let qwenRequests=0, glmRequests=0;
 let speechRequests = 0, failSpeech = false, holdSpeech = false, heldResponse, baseUrl, holdAnswer = false, heldAnswer;
 shell.openExternal = async (url) => external.push(url);
 const originalFetch = globalThis.fetch;
@@ -19,6 +20,16 @@ const server = http.createServer(async (req, res) => {
   try {
     const chunks = []; for await (const chunk of req) chunks.push(chunk);
     const bytes = Buffer.concat(chunks);
+    if(req.url==='/qwen/v1/models') {assert.equal(req.headers.authorization,'Bearer mock-qwen-key');res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({data:[{id:'qwen3-asr-flash'},{id:'qwen3-asr-flash-filetrans'},{id:'qwen-plus'}]}));return;}
+    if(req.url==='/qwen/v1/chat/completions') {
+      qwenRequests++;assert.equal(req.headers.authorization,'Bearer mock-qwen-key');const body=JSON.parse(bytes.toString());assert.equal(body.model,'qwen3-asr-flash');assert.equal(body.stream,false);assert.equal(body.asr_options.language,'zh');
+      const data=body.messages.at(-1).content[0].input_audio.data;assert.match(data,/^data:audio\/wav;base64,/);const wav=Buffer.from(data.split(',')[1],'base64');assert.equal(wav.toString('ascii',0,4),'RIFF');assert.equal(wav.readUInt32LE(24),16000);
+      res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({choices:[{finish_reason:'stop',message:{content:'千问转写测试'}}]}));return;
+    }
+    if(req.url==='/glm/v4/audio/transcriptions') {
+      glmRequests++;assert.equal(req.headers.authorization,'Bearer mock-glm-key');assert.ok(bytes.includes('glm-asr-2512'));assert.ok(bytes.includes('name="stream"'));assert.ok(bytes.includes('false'));assert.equal(bytes.includes('name="language"'),false);assert.equal(bytes.includes('name="response_format"'),false);
+      res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({text:'智谱转写测试'}));return;
+    }
     if (req.url === '/v1/models') { res.writeHead(200, {'Content-Type':'application/json'}); res.end(JSON.stringify({data:[null,{id:'mock-speech-model'},{id:'whisper-large-v3'},{id:'chat-model'}]})); return; }
     if (req.url === '/v1/audio/transcriptions') {
       if(failSpeech){res.writeHead(401);res.end('{}');return;}
@@ -47,7 +58,7 @@ const waitFor = async (fn, label, timeout = 15000) => {
 let finished = false;
 function finish(code, detail) {
   if (finished) return; finished = true;
-  fs.writeFileSync(path.join(root, 'artifacts/interview-smoke-report.json'), JSON.stringify({ ok: code === 0, detail, speechRequests, answerRequests: questions.length, errors, unexpectedNetwork: network, source: 'synthetic AudioContext; microphone never used; speech and model mocked' }, null, 2));
+  fs.writeFileSync(path.join(root, 'artifacts/interview-smoke-report.json'), JSON.stringify({ ok: code === 0, detail, speechRequests, qwenRequests, glmRequests, answerRequests: questions.length, errors, unexpectedNetwork: network, source: 'synthetic AudioContext; microphone never used; speech and model mocked' }, null, 2));
   console.log((code ? 'INTERVIEW SMOKE FAIL: ' : 'INTERVIEW SMOKE PASS: ') + detail); server.close(); app.exit(code);
 }
 process.on('uncaughtException', (error) => finish(1, error.stack));
@@ -69,6 +80,24 @@ app.whenReady().then(async () => {
   assert.equal(external[0], 'https://afdian.com/a/gulinyue618'); assert.equal(new URL(external[1]).pathname, 'linyue_clawbot001@163.com');
   await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
   fs.writeFileSync(path.join(root, 'artifacts/zhiyue-settings-contact.png'), (await main.webContents.capturePage()).toPNG());
+  const providerSelect=(id)=>evaluate('(()=>{const e=document.querySelector("[data-speech-field=provider]");e.value='+JSON.stringify(id)+';e.dispatchEvent(new Event("change",{bubbles:true}));})()');
+  await providerSelect('dashscope');
+  assert.equal(await evaluate('document.querySelector("[data-speech-field=base]").value'),'https://dashscope.aliyuncs.com/compatible-mode/v1');
+  assert.equal(await evaluate('document.querySelector("[data-speech-field=model]").value'),'qwen3-asr-flash');
+  await setValue('[data-speech-field=base]',baseUrl+'/qwen/v1/chat/completions');await setValue('[data-speech-field=key]','mock-qwen-key');
+  await evaluate('document.querySelector("[data-speech-discover]").click()');
+  await waitFor(()=>evaluate('document.querySelector("[data-speech-result]")?.textContent.includes("1 个候选模型")'),'Qwen model discovery filter');
+  assert.equal(await evaluate('document.querySelector("[data-speech-field=preset]").textContent.includes("filetrans")'),false);
+  await evaluate('document.querySelector("[data-speech-test]").click()');
+  await waitFor(()=>evaluate('window.api.interview.connection().then(c=>c.profile?.providerId==="dashscope")'),'Qwen native test/save');
+  await waitFor(()=>evaluate('!document.querySelector("[data-speech-test]").disabled'),'Qwen test complete');
+  assert.equal(qwenRequests,1);
+  await providerSelect('dashscope-intl');assert.equal(await evaluate('document.querySelector("[data-speech-field=base]").value'),'https://dashscope-intl.aliyuncs.com/compatible-mode/v1');
+  await providerSelect('zhipu');assert.equal(await evaluate('document.querySelector("[data-speech-field=language]").value'),'');assert.equal(await evaluate('document.querySelector("[data-speech-field=language]").disabled'),true);
+  await setValue('[data-speech-field=base]',baseUrl+'/glm/v4/audio/transcriptions');await setValue('[data-speech-field=key]','mock-glm-key');
+  await evaluate('document.querySelector("[data-speech-test]").click()');
+  await waitFor(()=>evaluate('window.api.interview.connection().then(c=>c.profile?.providerId==="zhipu")'),'GLM native test/save');
+  await waitFor(()=>evaluate('!document.querySelector("[data-speech-test]").disabled'),'GLM test complete');assert.equal(glmRequests,1);
   await setValue('[data-speech-field=key]','discard-this-key');
   await evaluate('(()=>{const e=document.querySelector("[data-speech-field=provider]");e.value="groq";e.dispatchEvent(new Event("change",{bubbles:true}));})()');
   assert.equal(await evaluate('document.querySelector("[data-speech-field=base]").value'),'https://api.groq.com/openai/v1');
