@@ -30,11 +30,11 @@
     ]
   },
   "src/main/hotkeys/modes.mjs": {
-    "lines": 86,
+    "lines": 97,
     "imports": []
   },
   "src/main/index.mjs": {
-    "lines": 3156,
+    "lines": 3215,
     "imports": [
       "./store/workspace.mjs",
       "./models/local-request.mjs",
@@ -63,7 +63,11 @@
       "./models/credentials.mjs",
       "./models/validation.mjs",
       "./models/adapters.mjs",
-      "./models/transport.mjs"
+      "./models/transport.mjs",
+      "./models/chatgpt-runtime.mjs",
+      "./models/chatgpt-auth.mjs",
+      "./models/chatgpt-adapter.mjs",
+      "./models/native-adapters.mjs"
     ]
   },
   "src/main/ipc/gateway.mjs": {
@@ -71,14 +75,37 @@
     "imports": []
   },
   "src/main/models/adapters.mjs": {
-    "lines": 669,
+    "lines": 664,
+    "imports": [
+      "./validation.mjs",
+      "./transport.mjs",
+      "./native-adapters.mjs"
+    ]
+  },
+  "src/main/models/chatgpt-adapter.mjs": {
+    "lines": 50,
     "imports": [
       "./validation.mjs",
       "./transport.mjs"
     ]
   },
+  "src/main/models/chatgpt-auth.mjs": {
+    "lines": 164,
+    "imports": [
+      "node:http",
+      "node:crypto"
+    ]
+  },
+  "src/main/models/chatgpt-runtime.mjs": {
+    "lines": 21,
+    "imports": [
+      "electron-store",
+      "electron",
+      "./chatgpt-auth.mjs"
+    ]
+  },
   "src/main/models/credentials.mjs": {
-    "lines": 351,
+    "lines": 353,
     "imports": [
       "./validation.mjs",
       "electron-store",
@@ -91,13 +118,22 @@
       "./validation.mjs"
     ]
   },
+  "src/main/models/native-adapters.mjs": {
+    "lines": 73,
+    "imports": [
+      "./validation.mjs",
+      "./transport.mjs"
+    ]
+  },
   "src/main/models/transport.mjs": {
     "lines": 363,
     "imports": []
   },
   "src/main/models/validation.mjs": {
-    "lines": 330,
-    "imports": []
+    "lines": 339,
+    "imports": [
+      "../../shared/model-providers.mjs"
+    ]
   },
   "src/main/security/display-affinity.mjs": {
     "lines": 126,
@@ -126,7 +162,7 @@
     ]
   },
   "src/main/store/default-settings.mjs": {
-    "lines": 281,
+    "lines": 286,
     "imports": []
   },
   "src/main/store/knowledge-library.mjs": {
@@ -204,7 +240,7 @@
     "imports": []
   },
   "src/preload/index.cjs": {
-    "lines": 150,
+    "lines": 158,
     "imports": []
   },
   "src/renderer/app.mjs": {
@@ -288,24 +324,41 @@
     ]
   },
   "src/renderer/local/app.mjs": {
-    "lines": 271,
+    "lines": 256,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../vendor/markdown.mjs",
       "../../shared/local-profile.mjs",
       "./requests.mjs",
-      "./overlay.mjs"
+      "./overlay.mjs",
+      "./model-card.mjs",
+      "./window-controls.mjs"
+    ]
+  },
+  "src/renderer/local/model-card.mjs": {
+    "lines": 82,
+    "imports": [
+      "../vendor/react-icons-state.mjs",
+      "../../shared/model-providers.mjs"
     ]
   },
   "src/renderer/local/overlay.mjs": {
-    "lines": 22,
+    "lines": 30,
     "imports": [
-      "../vendor/react-icons-state.mjs"
+      "../vendor/react-icons-state.mjs",
+      "../../shared/window-shortcuts.mjs"
     ]
   },
   "src/renderer/local/requests.mjs": {
     "lines": 42,
     "imports": []
+  },
+  "src/renderer/local/window-controls.mjs": {
+    "lines": 41,
+    "imports": [
+      "../vendor/react-icons-state.mjs",
+      "../../shared/window-shortcuts.mjs"
+    ]
   },
   "src/renderer/services/gateway.mjs": {
     "lines": 472,
@@ -362,6 +415,14 @@
   },
   "src/shared/local-profile.mjs": {
     "lines": 4,
+    "imports": []
+  },
+  "src/shared/model-providers.mjs": {
+    "lines": 32,
+    "imports": []
+  },
+  "src/shared/window-shortcuts.mjs": {
+    "lines": 8,
     "imports": []
   }
 }

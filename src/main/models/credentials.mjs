@@ -225,7 +225,7 @@ function savePersonalModelProfile(model, baseUrl, options = {}, generation = {},
   store.set("connections", {
     ...current,
     [slot]: {
-      version: 6,
+      version: 7,
       model: profile.model,
       baseUrl: profile.baseUrl,
       webSearchEnabled: profile.webSearchEnabled,
@@ -310,7 +310,7 @@ function readPersistedConnections() {
   const valid2 = {};
   for (const slot of ["screenshot", "interview"]) {
     const value = raw[slot];
-    if (value?.version === 5 || value?.version === 6) valid2[slot] = value;
+    if ([5, 6, 7].includes(value?.version)) valid2[slot] = value;
   }
   return valid2;
 }
@@ -318,6 +318,8 @@ function generationOptions(value) {
   const legacyGeneration = value;
   const legacySearch = "webSearchMode" in value ? value.webSearchMode !== "off" : void 0;
   return {
+    ...(value.providerId !== undefined ? { providerId: value.providerId } : {}),
+    ...(value.apiMode !== undefined ? { apiMode: value.apiMode } : {}),
     ..."webSearchEnabled" in value && value.webSearchEnabled !== void 0 ? { webSearchEnabled: value.webSearchEnabled } : legacySearch !== void 0 ? { webSearchEnabled: legacySearch } : {},
     ...legacyGeneration.temperature !== void 0 ? { temperature: legacyGeneration.temperature } : {},
     ...legacyGeneration.thinkingLevel !== void 0 ? { thinkingLevel: legacyGeneration.thinkingLevel } : {},

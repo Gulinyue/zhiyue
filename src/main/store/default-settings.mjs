@@ -36,6 +36,8 @@ const DEFAULT_HOTKEYS = {
   // capture-and-submit command, so the legacy global shortcut stays disabled.
   "screenshot:analyze": "",
   "window:toggle": "Ctrl+E",
+  "window:hide": "Ctrl+Shift+H",
+  "window:show": "Ctrl+Shift+E",
   "session:reset": "Ctrl+R",
   "interview:clearContext": "Ctrl+Shift+Backspace",
   "exam:exit": "Ctrl+Shift+Z",
@@ -62,6 +64,9 @@ const DEFAULT_HOTKEYS = {
   // scrolling, and the Ctrl+Shift+Arrow window-movement shortcuts.
   "answer:scrollUp": "Ctrl+Win+Up",
   "answer:scrollDown": "Ctrl+Win+Down",
+  // Ctrl+Win+Left/Right is reserved by Windows for virtual desktops.
+  "answer:scrollLeft": "Ctrl+Alt+Shift+Left",
+  "answer:scrollRight": "Ctrl+Alt+Shift+Right",
   // These two shortcuts are registered only while an active task has a
   // paired, foreground mobile result viewport. Keeping them in settings does
   // not make them permanent global shortcuts.

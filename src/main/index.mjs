@@ -27,6 +27,10 @@ import { loadPersonalModelCredentialSecret, removePersonalModelCredential, remov
 import { createDefaultPersonalModelProfile, isPersonalModelConnectionSlot, validatePersonalModelRequest, PersonalModelValidationError } from "./models/validation.mjs";
 import { createPersonalModelAdapter, personalModelInvalidRequestMessage } from "./models/adapters.mjs";
 import { PersonalModelAdapterError } from "./models/transport.mjs";
+import { chatgptAuth } from './models/chatgpt-runtime.mjs';
+import { ChatGptAuthError } from './models/chatgpt-auth.mjs';
+import { ChatGptPlanAdapter } from './models/chatgpt-adapter.mjs';
+import { discoverModels } from './models/native-adapters.mjs';
 
 "use strict";
 const HOTKEY_ACTIONS = [
@@ -34,6 +38,8 @@ const HOTKEY_ACTIONS = [
   "screenshot:captureScrolling",
   "screenshot:analyze",
   "window:toggle",
+  "window:hide",
+  "window:show",
   "session:reset",
   "interview:clearContext",
   "exam:exit",
@@ -55,6 +61,8 @@ const HOTKEY_ACTIONS = [
   "window:toggleMouseThrough",
   "answer:scrollUp",
   "answer:scrollDown",
+  "answer:scrollLeft",
+  "answer:scrollRight",
   "mobile:scrollUp",
   "mobile:scrollDown"
 ];
@@ -1916,7 +1924,9 @@ const INTERVIEW_CONTEXT_HOTKEY_ACTIONS = /* @__PURE__ */ new Set([
 ]);
 const ANSWER_SCROLL_HOTKEY_ACTIONS = /* @__PURE__ */ new Set([
   "answer:scrollUp",
-  "answer:scrollDown"
+  "answer:scrollDown",
+  "answer:scrollLeft",
+  "answer:scrollRight"
 ]);
 function registerHotkeys(handler) {
   currentHandler = handler;
@@ -2031,6 +2041,12 @@ function onTrigger(action) {
   switch (action) {
     case "window:toggle":
       toggleWindow();
+      return;
+    case "window:hide":
+      hideWindow();
+      return;
+    case "window:show":
+      showMainWindowInteractive();
       return;
     case "app:quit":
       quitApp();
@@ -2235,7 +2251,7 @@ function unregisterInterviewContextHotkeys() {
 }
 function syncAnswerScrollHotkeys() {
   unregisterAnswerScrollHotkeys();
-  if (capturing || !answerScrollActive || activeWorkMode === "idle") return;
+  if (capturing || !answerScrollActive) return;
   const { hotkeys } = getSettings();
   for (const action of ANSWER_SCROLL_HOTKEY_ACTIONS) {
     const accel = hotkeys[action]?.trim();
@@ -2331,6 +2347,23 @@ function registerIpc() {
   if (ipcRegistered) return;
   ipcRegistered = true;
   registerWorkspaceIpc(mainIpc);
+  mainIpc.handle('chatgpt:status', () => chatgptAuth.status());
+  mainIpc.handle('chatgpt:signin', (_event, options) => chatgptAuth.signIn({ newAccount: options?.newAccount === true, clientId: typeof options?.clientId === 'string' ? options.clientId : undefined }));
+  mainIpc.handle('chatgpt:cancel', () => chatgptAuth.cancel());
+  mainIpc.handle('chatgpt:logout', async () => {
+    for (const run of activePersonalModelRuns.values()) {
+      if (getConfiguredPersonalModelProfile(true, personalModelUrlValidationOptions(), run.slot)?.providerId === 'chatgpt') run.controller.abort();
+    }
+    return chatgptAuth.logout();
+  });
+  mainIpc.handle('chatgpt:usage', () => electron.shell.openExternal('https://chatgpt.com/#settings/Usage'));
+  mainIpc.handle('personal-models:discover', async (_event, raw) => {
+    const input = normalizePersonalModelConnectionInput({ ...raw, model: raw?.model || 'discovery' });
+    const profile = createDefaultPersonalModelProfile(input.model, input.baseUrl, true, personalModelUrlValidationOptions(), personalModelGenerationOptions(input), input.slot);
+    const apiKey = profile.providerId === 'chatgpt' ? await chatgptAuth.accessToken() : input.apiKey ?? loadPersonalModelCredentialSecret(profile.baseUrl, personalModelUrlValidationOptions(), input.slot);
+    if (!apiKey) throw new Error('请填写此接口的 API Key 后获取模型列表');
+    return discoverModels(profile, apiKey);
+  });
   registerRemoteControlPowerMonitorBridge();
   registerLocalRecordsIpc(mainIpc, {
     store: new LocalRecordsStore(path.join(electron.app.getPath("userData"), "records-v1", "store")),
@@ -2414,7 +2447,7 @@ function registerIpc() {
       personalModelConnectionTestActive = true;
       try {
         const input = normalizePersonalModelConnectionInput(raw);
-        const apiKey = input.apiKey ?? loadPersonalModelCredentialSecret(
+        const apiKey = input.providerId === "chatgpt" ? "chatgpt-authorization" : input.apiKey ?? loadPersonalModelCredentialSecret(
           input.baseUrl,
           personalModelUrlValidationOptions(),
           input.slot
@@ -2431,7 +2464,7 @@ function registerIpc() {
           input.slot
         );
         const startedAt = Date.now();
-        const adapter = createPersonalModelAdapter({
+        const adapter = createLocalModelAdapter({
           profile,
           apiKey,
           urlValidation: personalModelUrlValidationOptions()
@@ -2521,7 +2554,7 @@ function registerIpc() {
               }
             };
           }
-          const apiKey = loadPersonalModelCredentialSecret(
+          const apiKey = profile.providerId === "chatgpt" ? "chatgpt-authorization" : loadPersonalModelCredentialSecret(
             profile.baseUrl,
             personalModelUrlValidationOptions(),
             slot
@@ -2535,7 +2568,7 @@ function registerIpc() {
               }
             };
           }
-          const adapter = createPersonalModelAdapter({
+          const adapter = createLocalModelAdapter({
             profile,
             apiKey,
             urlValidation: personalModelUrlValidationOptions()
@@ -2847,6 +2880,11 @@ function personalModelSettingsSnapshot() {
   const credentials = ["screenshot", "interview"].flatMap((slot) => {
     const profile = getConfiguredPersonalModelProfile(false, urlValidation, slot);
     if (!profile) return [];
+    if (profile.providerId === 'chatgpt') {
+      configured[slot] = chatgptAuth.status().planEnabled;
+      if (!configured[slot]) credentialIssues[slot] = '请登录 ChatGPT 并允许使用套餐';
+      return [];
+    }
     const summaries = listPersonalModelCredentialSummaries(
       profile.baseUrl,
       urlValidation,
@@ -2889,6 +2927,12 @@ function persistPersonalModelConnection(input) {
     personalModelGenerationOptions(input),
     slot
   );
+  if (input.providerId === 'chatgpt') {
+    if (!chatgptAuth.status().planEnabled) throw new Error('请先完成 ChatGPT 授权并允许使用套餐');
+    removePersonalModelCredential(slot);
+    savePersonalModelProfile(input.model, input.baseUrl, urlValidation, personalModelGenerationOptions(input), slot);
+    return;
+  }
   if (input.apiKey) {
     savePersonalModelCredential(
       { apiKey: input.apiKey },
@@ -2926,6 +2970,8 @@ function normalizePersonalModelConnectionInput(raw) {
     "model",
     "baseUrl",
     "apiKey",
+    "providerId",
+    "apiMode",
     "webSearchEnabled",
     "temperature",
     "thinkingLevel",
@@ -2945,6 +2991,8 @@ function normalizePersonalModelConnectionInput(raw) {
     true,
     personalModelUrlValidationOptions(),
     {
+      ...(value.providerId !== undefined ? { providerId: value.providerId } : {}),
+      ...(value.apiMode !== undefined ? { apiMode: value.apiMode } : {}),
       ...value.webSearchEnabled !== void 0 ? { webSearchEnabled: value.webSearchEnabled } : {},
       ...value.temperature !== void 0 ? { temperature: value.temperature } : {},
       ...value.thinkingLevel !== void 0 ? { thinkingLevel: value.thinkingLevel } : {},
@@ -2968,6 +3016,8 @@ function normalizePersonalModelConnectionInput(raw) {
 }
 function personalModelGenerationOptions(value) {
   return {
+    ...(value.providerId !== undefined ? { providerId: value.providerId } : {}),
+    ...(value.apiMode !== undefined ? { apiMode: value.apiMode } : {}),
     ...value.webSearchEnabled !== void 0 ? { webSearchEnabled: value.webSearchEnabled } : {},
     ...value.temperature !== void 0 ? { temperature: value.temperature } : {},
     ...value.thinkingLevel !== void 0 ? { thinkingLevel: value.thinkingLevel } : {},
@@ -3004,6 +3054,7 @@ class PersonalModelBridgeError extends Error {
   }
 }
 function personalModelError(error) {
+  if (error instanceof ChatGptAuthError) return { code: error.code, message: error.message };
   if (error instanceof PersonalModelBridgeError) {
     return { code: error.code, message: error.message };
   }
@@ -3017,6 +3068,7 @@ function personalModelError(error) {
     };
   }
   if (error instanceof PersonalModelAdapterError) {
+    if (error.code.startsWith('CHATGPT_')) return { code: error.code, message: error.message };
     if (error.code === "PERSONAL_MODEL_INVALID_REQUEST") {
       return {
         code: error.code,
@@ -3066,6 +3118,7 @@ function personalModelValidationErrorMessage(error) {
   return "本次截图或模型请求参数无效，请重新截图并检查模型高级参数。";
 }
 function personalModelSettingsErrorMessage(error) {
+  if (error instanceof ChatGptAuthError) return error.message;
   if (error instanceof PersonalModelCredentialStoreError) {
     return personalModelCredentialErrorMessage(error);
   }
@@ -3152,4 +3205,10 @@ if (!gotLock) {
     clearSessionPersonalModelCredentials();
     unregisterAll();
   });
+}
+
+function createLocalModelAdapter(options) {
+  return options.profile.providerId === 'chatgpt'
+    ? new ChatGptPlanAdapter({ ...options, auth: chatgptAuth })
+    : createPersonalModelAdapter(options);
 }

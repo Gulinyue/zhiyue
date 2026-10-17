@@ -1,6 +1,7 @@
 // Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 import { PERSONAL_MODEL_PROVIDER, validatePersonalModelProfile, validatePersonalModelCredentialInput, personalModelChatCompletionsEndpoint, validatePersonalModelRequest, isDashScopeQwen38PersonalModel, personalModelResponsesEndpoint, MAX_PERSONAL_MODEL_SOURCES } from "./validation.mjs";
 import { createPersonalModelAbortScope, assertPersonalModelResponseOk, readResponseJson, createPersonalModelStreamAbortScope, readSseJson, PersonalModelAdapterError } from "./transport.mjs";
+import { NativeModelAdapter, modelHeaders } from './native-adapters.mjs';
 
 const MAX_PERSONAL_MODEL_OUTPUT_CHARS$1 = 512e3;
 class OpenAiCompatiblePersonalModelAdapter {
@@ -121,10 +122,7 @@ class OpenAiCompatiblePersonalModelAdapter {
     }, options);
   }
   headers() {
-    return {
-      Authorization: `Bearer ${this.apiKey}`,
-      "Content-Type": "application/json"
-    };
+    return modelHeaders(this.profile, this.apiKey);
   }
 }
 function buildOpenAiCompatibleBody(profile, request, stream) {
@@ -378,10 +376,7 @@ class OpenAiResponsesPersonalModelAdapter {
     }, options);
   }
   headers() {
-    return {
-      Authorization: `Bearer ${this.apiKey}`,
-      "Content-Type": "application/json"
-    };
+    return modelHeaders(this.profile, this.apiKey);
   }
 }
 function buildOpenAiResponsesBody(profile, request, stream) {
@@ -632,7 +627,7 @@ function readFiniteNumber(value, key) {
 function createPersonalModelAdapter(options) {
   const profile = validatePersonalModelProfile(options.profile, options.urlValidation);
   const credential = validatePersonalModelCredentialInput({ apiKey: options.apiKey });
-  const Adapter = profile.apiMode === "responses" ? OpenAiResponsesPersonalModelAdapter : OpenAiCompatiblePersonalModelAdapter;
+  const Adapter = ['anthropic', 'gemini'].includes(profile.apiMode) ? NativeModelAdapter : profile.apiMode === "responses" ? OpenAiResponsesPersonalModelAdapter : OpenAiCompatiblePersonalModelAdapter;
   return new Adapter({
     profile,
     apiKey: credential.apiKey,

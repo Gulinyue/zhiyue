@@ -19,6 +19,13 @@ electron.ipcRenderer.on(
 );
 const api = {
   runtime: { platform: process.platform, arch: process.arch, edition: 'local' },
+  chatgpt: {
+    status: () => electron.ipcRenderer.invoke('chatgpt:status'),
+    signIn: (options) => electron.ipcRenderer.invoke('chatgpt:signin', options),
+    cancel: () => electron.ipcRenderer.invoke('chatgpt:cancel'),
+    logout: () => electron.ipcRenderer.invoke('chatgpt:logout'),
+    usage: () => electron.ipcRenderer.invoke('chatgpt:usage')
+  },
   workspace: {
     list: () => electron.ipcRenderer.invoke('local-workspace:list'),
     read: (id) => electron.ipcRenderer.invoke('local-workspace:read', id),
@@ -105,6 +112,7 @@ const api = {
     onChange: (cb) => subscribe(IPC.authChanged, cb)
   },
   personalModels: {
+    discover: (input) => electron.ipcRenderer.invoke('personal-models:discover', input),
     load: () => electron.ipcRenderer.invoke(IPC.personalModelsLoad),
     save: (input) => electron.ipcRenderer.invoke(IPC.personalModelsSave, input),
     test: (input) => electron.ipcRenderer.invoke(IPC.personalModelsTest, input),

@@ -1,6 +1,7 @@
 // Recovered from the supplied Climb 3.0.1 artifact. See docs/RECOVERY.md.
 
 
+import { modelProvider, MODEL_PROTOCOLS } from '../../shared/model-providers.mjs';
 const PERSONAL_MODEL_PROVIDER = "custom-api";
 const PERSONAL_MODEL_PROTOCOL = "openai-compatible";
 const PERSONAL_MODEL_PROFILE_ID = "personal-custom-api";
@@ -146,13 +147,21 @@ function validatePersonalModelProfile(value, options = {}) {
   }
   const generation = normalizePersonalModelGenerationOptions(value);
   const webSearchEnabled = normalizePersonalModelWebSearchEnabled(value.webSearchEnabled);
-  const apiMode = personalModelApiModeForWebSearch(webSearchEnabled);
+  const providerId = value.providerId ?? 'custom';
+  if (!modelProvider(providerId)) throw new PersonalModelValidationError('Unsupported model source');
+  const apiMode = value.apiMode ?? personalModelApiModeForWebSearch(webSearchEnabled);
+  if (!Object.hasOwn(MODEL_PROTOCOLS, apiMode)) throw new PersonalModelValidationError('Unsupported model protocol');
+  if (providerId === 'chatgpt' && (baseUrl !== 'https://api.openai.com/v1' || apiMode !== 'responses' || webSearchEnabled)) {
+    throw new PersonalModelValidationError('ChatGPT authorization requires the official Responses endpoint without web search');
+  }
+  if (webSearchEnabled && apiMode !== 'responses') throw new PersonalModelValidationError('Web search requires Responses');
   return {
     id: PERSONAL_MODEL_PROFILE_ID,
     provider: PERSONAL_MODEL_PROVIDER,
     protocol: PERSONAL_MODEL_PROTOCOL,
     slot: value.slot,
     apiMode,
+    providerId,
     model,
     baseUrl,
     label: model,

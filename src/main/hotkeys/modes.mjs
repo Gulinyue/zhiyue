@@ -4,6 +4,17 @@
 const WORK_MODES = ["idle", "exam", "interview"];
 const ALWAYS_ALLOWED_HOTKEYS = /* @__PURE__ */ new Set([
   "window:toggle",
+  "window:hide",
+  "window:show",
+  "window:moveUp",
+  "window:moveDown",
+  "window:moveLeft",
+  "window:moveRight",
+  "window:toggleMouseThrough",
+  "answer:scrollUp",
+  "answer:scrollDown",
+  "answer:scrollLeft",
+  "answer:scrollRight",
   "session:reset",
   "app:quit",
   "window:zoomIn",

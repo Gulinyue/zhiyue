@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session, ipcMain } = require('electron');
+const { app, BrowserWindow, session, ipcMain, globalShortcut } = require('electron');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -11,6 +11,10 @@ process.env.CLIMB_USER_DATA_DIR = fs.mkdtempSync(path.join(root, '.runtime', 'lo
 const requests = [];
 const unexpectedNetwork = [];
 const errors = [];
+const shortcuts = new Map();
+const register = globalShortcut.register.bind(globalShortcut);
+globalShortcut.register = (accelerator, callback) => { const ok = register(accelerator, callback); if (ok) shortcuts.set(accelerator, callback); return ok; };
+const trigger = (accelerator) => { assert.equal(globalShortcut.isRegistered(accelerator), true, accelerator + ' must be registered'); assert.ok(shortcuts.get(accelerator)); shortcuts.get(accelerator)(); };
 let baseUrl;
 let aborted = false;
 const originalFetch = globalThis.fetch;
@@ -26,6 +30,21 @@ const server = http.createServer(async (req, res) => {
   for await (const chunk of req) raw += chunk;
   const body = JSON.parse(raw || '{}');
   requests.push({ path: req.url, body });
+  if (req.url === '/v1/models') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ data: [{ id: 'smoke-model' }] })); return; }
+  if (req.url === '/v1/messages' || req.url.startsWith('/v1/models/')) {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+    if (req.url === '/v1/messages') {
+      assert.equal(req.headers['x-api-key'], 'local-no-key');
+      assert.equal(body.system, '中文回答'); assert.equal(body.messages[0].content[1].type, 'image');
+      res.write('data: ' + JSON.stringify({ type: 'content_block_delta', delta: { type: 'text_delta', text: 'native answer' } }) + '\n\n');
+      res.end('data: {"type":"message_stop"}\n\n');
+    } else {
+      assert.equal(req.headers['x-goog-api-key'], 'local-no-key');
+      assert.equal(body.systemInstruction.parts[0].text, '中文回答'); assert.ok(body.contents[0].parts[1].inlineData);
+      res.end('data: ' + JSON.stringify({ candidates: [{ content: { parts: [{ text: 'native answer' }] }, finishReason: 'STOP' }] }) + '\n\n');
+    }
+    return;
+  }
   if (req.url !== '/v1/chat/completions') { res.writeHead(404); res.end(); return; }
   res.writeHead(200, { 'Content-Type': 'text/event-stream' });
   const last = body.messages?.at(-1)?.content;
@@ -90,8 +109,8 @@ app.whenReady().then(async () => {
   await evaluate('document.querySelector("[data-page=settings]").click()');
   await waitFor(() => evaluate('document.querySelectorAll(".model-card").length === 2'), 'model settings');
   for (const index of [1, 2]) {
-    await setValue(`.model-card:nth-child(${index}) input`, baseUrl + '/v1');
-    await setValue(`.model-card:nth-child(${index}) .field:nth-of-type(2) input`, 'smoke-model');
+    await setValue(`.model-card:nth-child(${index}) [data-model-field=base]`, baseUrl + '/v1');
+    await setValue(`.model-card:nth-child(${index}) [data-model-field=model]`, 'smoke-model');
     await evaluate(`document.querySelector('.model-card:nth-child(${index}) button.primary').click()`);
     await waitFor(() => evaluate(`!!document.querySelector('.model-card:nth-child(${index}) .status.ready')`), 'saved model without API key');
   }
@@ -149,9 +168,50 @@ app.whenReady().then(async () => {
   main.webContents.send('hotkey:triggered', 'screenshot:capture');
   await waitFor(() => requests.length > beforeHotkey, 'capture-and-send hotkey');
   await waitFor(() => evaluate('![...document.querySelectorAll("button")].some(el => el.textContent === "停止生成")'), 'hotkey request completed');
+  // Run the actual callbacks that Electron registered, including the mode gate.
+  const status = await evaluate('window.api.hotkey.status()');
+  for (const action of ['window:show', 'window:hide', 'window:moveRight', 'window:opacityDown', 'answer:scrollUp', 'answer:scrollRight']) assert.equal(status[action], true, action);
+  const bounds = main.getBounds();
+  main.setPosition(80, 80);
+  trigger('Control+Shift+Right');
+  assert.ok(main.getBounds().x > 80, 'Window movement works in idle mode');
+  trigger('Control+Shift+[');
+  await waitFor(() => evaluate('Number(document.querySelector("[data-local-app]").style.opacity) < 1'), 'keyboard opacity');
+  const transparent = await main.webContents.capturePage();
+  const alpha = transparent.getBitmap()[(30 * transparent.getSize().width + 400) * 4 + 3];
+  assert.ok(alpha > 0 && alpha < 255, 'Window pixels must actually become transparent');
+  const beforeOpacity = await evaluate('Number(document.querySelector("[data-local-app]").style.opacity)');
+  trigger('Control+Shift+]');
+  await waitFor(() => evaluate('Number(document.querySelector("[data-local-app]").style.opacity) > ' + beforeOpacity), 'increase opacity');
+  trigger('Control+Shift+H'); assert.equal(main.isVisible(), false);
+  trigger('Control+Shift+E'); await waitFor(() => main.isVisible(), 'dedicated show shortcut');
+  trigger('Control+Shift+X');
+  await waitFor(() => evaluate('Number(document.querySelector("[data-local-app]").style.opacity) < 0.6'), 'click-through opacity');
+  trigger('Control+Shift+H'); trigger('Control+Shift+E');
+  await waitFor(() => evaluate('Number(document.querySelector("[data-local-app]").style.opacity) > 0.6'), 'show restores interaction and opacity');
+  main.setBounds(bounds);
+  // Add long fixture content without sending any provider request.
+  await evaluate(`window.api.workspace.save({id:'scroll-fixture',title:'scroll',mode:'chat',updatedAt:Date.now(),messages:[{id:'fixture-user',role:'user',text:'滚动测试',status:'completed'},{id:'fixture-answer',role:'assistant',text:Array.from({length:120},(_,i)=>'第 '+i+' 行内容').join('\\n\\n')+'\\n\\n'+String.fromCharCode(96).repeat(3)+'text\\n'+'code '.repeat(300)+'\\n'+String.fromCharCode(96).repeat(3),status:'completed'}]})`);
+  await evaluate('document.querySelector("[data-page=history]").click()');
+  await waitFor(() => evaluate('document.querySelector(".history-item")?.innerText.includes("scroll")'), 'scroll fixture history');
+  await evaluate('document.querySelector(".history-item button.primary").click()');
+  await waitFor(() => evaluate('document.querySelector(".chat-thread")?.scrollTop > 100'), 'long content at bottom');
+  const bottom = await evaluate('document.querySelector(".chat-thread").scrollTop');
+  trigger('Control+Super+Up');
+  await waitFor(() => evaluate('document.querySelector(".chat-thread").scrollTop < ' + bottom), 'content scroll up');
+  trigger('Control+Super+Down');
+  await waitFor(() => evaluate('document.querySelector(".chat-thread").scrollTop >= ' + bottom), 'content scroll down');
+  trigger('Control+Alt+Shift+Right');
+  await waitFor(() => evaluate('[...document.querySelectorAll(".chat-thread pre, .chat-thread pre code")].some(el=>el.scrollLeft > 0)'), 'horizontal code scroll');
+  trigger('Control+Alt+Shift+Left');
+  await waitFor(() => evaluate('[...document.querySelectorAll(".chat-thread pre, .chat-thread pre code")].every(el=>el.scrollLeft === 0)'), 'horizontal scroll back');
   await click('专注窗口');
   await waitFor(() => evaluate('!!document.querySelector(".is-focus")'), 'focus UI');
   await waitFor(() => main.isVisible(), 'focus reveal');
+  const focusBounds = main.getBounds();
+  await evaluate(`(() => { const el=document.querySelector('.focus-resize-handle'); if(!el)throw Error('Missing resize handle'); el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerId:7,screenX:100,screenY:100})); el.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,pointerId:7,screenX:160,screenY:145})); el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:7,screenX:160,screenY:145})); })()`);
+  await waitFor(() => main.getBounds().width > focusBounds.width && main.getBounds().height > focusBounds.height, 'focus resize handle');
+  fs.writeFileSync(path.join(artifacts, 'local-floating-window.png'), (await main.webContents.capturePage()).toPNG());
   await click('退出专注');
   await waitFor(() => evaluate('!document.querySelector(".is-focus")'), 'exit focus UI');
 
@@ -165,9 +225,21 @@ app.whenReady().then(async () => {
   const restore = await evaluate('window.api.window.setTaskSurface("idle", "preparation", false)');
   assert.equal(await evaluate(`window.api.window.commitTaskSurface(${restore})`), true);
   assert.equal(await evaluate('window.api.app.downloadUpdate("https://workclimb.top/old.exe").then(r => r.status)'), 'unavailable');
+  for (const [providerId, apiMode] of [['anthropic', 'anthropic'], ['google', 'gemini']]) {
+    const input = { slot: 'interview', providerId, apiMode, model: 'smoke-model', baseUrl: baseUrl + '/v1' };
+    const models = await evaluate(`window.api.personalModels.discover(${JSON.stringify(input)})`);
+    assert.equal(models[0].id, 'smoke-model');
+    const savedProfile = await evaluate(`window.api.personalModels.save(${JSON.stringify(input)})`);
+    assert.equal(savedProfile.profiles.find((p) => p.slot === 'interview').apiMode, apiMode);
+    const payload = { requestId: 'native-' + providerId, taskKind: 'interview', slot: 'interview', request: { messages: [{ role: 'system', content: '中文回答' }, { role: 'user', content: [{ type: 'text', text: '图片问题' }, { type: 'image_url', imageUrl: png }] }] } };
+    const result = await evaluate(`window.api.personalModels.run(${JSON.stringify(payload)})`);
+    assert.equal(result.ok, true, JSON.stringify(result)); assert.equal(result.result.text, 'native answer');
+  }
+  const persistedProfiles = JSON.parse(fs.readFileSync(path.join(process.env.CLIMB_USER_DATA_DIR, 'personal-model-profiles.json'), 'utf8'));
+  assert.equal(persistedProfiles.connections.interview.apiMode, 'gemini'); assert.equal(persistedProfiles.connections.interview.providerId, 'google');
   assert.deepEqual(unexpectedNetwork, []);
   assert.deepEqual(errors, []);
-  finish(0, 'No-login startup, local model settings, knowledge retrieval, text/vision streaming, cancellation, saved/reopened history, capture-and-send hotkey, focus UI, task tokens, overlay access restrictions; no Climb server requests');
+  finish(0, 'No-login startup, provider settings/discovery/persistence, native Claude/Gemini text and vision IPC, knowledge retrieval, streaming/cancel/history, registered window movement/opacity/hide/show/click-through recovery/content scrolling, focus resize, task tokens and overlay access restrictions; providers mocked');
 }).catch((error) => finish(1, error.stack));
-setTimeout(() => finish(1, 'Overall local smoke timeout'), 45000).unref();
+setTimeout(() => finish(1, 'Overall local smoke timeout'), 70000).unref();
 require('../out/main/index.js');

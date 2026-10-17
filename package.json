@@ -16,16 +16,18 @@
     "check": "node scripts/check.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:smoke": "npm run build && node scripts/smoke.mjs",
+    "test:auth-smoke": "npm run build && node scripts/smoke.mjs auth",
     "verify": "npm run check && npm test && npm run build"
   },
   "dependencies": {
     "electron-store": "8.2.0",
+    "jose": "^6.2.12",
     "koffi": "2.16.0"
   },
   "devDependencies": {
     "acorn": "^8.15.0",
-    "eslint-scope": "^8.4.0",
+    "electron": "38.8.6",
     "esbuild": "^0.25.0",
-    "electron": "38.8.6"
+    "eslint-scope": "^8.4.0"
   }
 }
