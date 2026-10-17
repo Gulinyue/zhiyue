@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">知跃 Zhiyue</title>
+  <desc id="desc">Two open book pages become an upward leap. Designed for Zhiyue by gulinyue.</desc>
+  <metadata>知跃 / Zhiyue · Developer: gulinyue · Original vector identity</metadata>
+  <defs>
+    <linearGradient id="field" x1="64" y1="40" x2="440" y2="480" gradientUnits="userSpaceOnUse"><stop stop-color="#23483c"/><stop offset="1" stop-color="#102e29"/></linearGradient>
+    <linearGradient id="page" x1="262" y1="360" x2="384" y2="130" gradientUnits="userSpaceOnUse"><stop stop-color="#a5c99b"/><stop offset="1" stop-color="#e4f1cf"/></linearGradient>
+  </defs>
+  <rect x="8" y="8" width="496" height="496" rx="120" fill="url(#field)"/>
+  <path d="M112 151c56 0 96 17 127 47v181c-31-30-71-47-127-47z" fill="#faf7e9"/>
+  <path d="M264 217c34-39 77-70 136-89v184c-59 19-102 50-136 89z" fill="url(#page)"/>
+  <path d="M144 206c24 4 44 12 62 24M144 250c24 4 44 12 62 24" fill="none" stroke="#72937b" stroke-width="13" stroke-linecap="round"/>
+  <path d="M290 291l67-74M317 215l42-1 2 42" fill="none" stroke="#254c3c" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M260 84l8 21 21 8-21 8-8 21-8-21-21-8 21-8z" fill="#dfb96b"/>
+</svg>
