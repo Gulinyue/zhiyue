@@ -15,6 +15,15 @@ const shortcuts = new Map();
 const register = globalShortcut.register.bind(globalShortcut);
 globalShortcut.register = (accelerator, callback) => { const ok = register(accelerator, callback); if (ok) shortcuts.set(accelerator, callback); return ok; };
 const trigger = (accelerator) => { assert.equal(globalShortcut.isRegistered(accelerator), true, accelerator + ' must be registered'); assert.ok(shortcuts.get(accelerator)); shortcuts.get(accelerator)(); };
+const user32 = process.platform === 'win32' ? require('koffi').load('user32.dll') : null;
+const readAffinity = user32?.func('int __stdcall GetWindowDisplayAffinity(intptr_t hwnd, _Out_ uint32_t *affinity)');
+const readStyle = user32?.func('__stdcall', 'GetWindowLongPtrW', 'intptr_t', ['intptr_t', 'int']);
+function nativeState(win) {
+  const bytes = win.getNativeWindowHandle(); const hwnd = bytes.length >= 8 ? bytes.readBigUInt64LE(0) : BigInt(bytes.readUInt32LE(0));
+  const out = [null]; assert.equal(Number(readAffinity(hwnd, out)), 1);
+  const style = BigInt(readStyle(hwnd, -20));
+  return { affinity: out[0], transparent: !!(style & 0x20n), noActivate: !!(style & 0x08000000n) };
+}
 let baseUrl;
 let aborted = false;
 const originalFetch = globalThis.fetch;
@@ -97,7 +106,7 @@ app.whenReady().then(async () => {
   const main = await waitFor(() => BrowserWindow.getAllWindows().find((win) => !win.isDestroyed()), 'main window');
   const evaluate = (script) => main.webContents.executeJavaScript(script);
   const click = (label) => evaluate(`(() => { const button = [...document.querySelectorAll('button')].find(el => el.textContent.trim() === ${JSON.stringify(label)}); if (!button) throw new Error('Button missing'); button.click(); })()`);
-  const setValue = (selector, value) => evaluate(`(() => { const input = document.querySelector(${JSON.stringify(selector)}); if (!input) throw new Error('Input missing'); Object.getOwnPropertyDescriptor(input.constructor.prototype, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  const setValue = (selector, value) => evaluate(`(() => { const input = document.querySelector(${JSON.stringify(selector)}); if (!input) throw new Error('Input missing'); Object.getOwnPropertyDescriptor(input.constructor.prototype, 'value').set.call(input, ${JSON.stringify(value)}); input.dispatchEvent(new Event(input.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true })); })()`);
   await waitFor(() => evaluate('!!document.querySelector("[data-local-app]")'), 'local workspace');
   assert.equal(await evaluate('document.title'), '知跃');
   assert.equal(await evaluate('window.api.runtime.brand.developer'), 'gulinyue');
@@ -180,9 +189,11 @@ app.whenReady().then(async () => {
   assert.ok(main.getBounds().x > 80, 'Window movement works in idle mode');
   trigger('Control+Shift+[');
   await waitFor(() => evaluate('Number(document.querySelector("[data-local-app]").style.opacity) < 1'), 'keyboard opacity');
-  const transparent = await main.webContents.capturePage();
-  const alpha = transparent.getBitmap()[(30 * transparent.getSize().width + 400) * 4 + 3];
-  assert.ok(alpha > 0 && alpha < 255, 'Window pixels must actually become transparent');
+  await waitFor(async () => {
+    const transparent = await main.webContents.capturePage();
+    const alpha = transparent.toBitmap()[(30 * transparent.getSize().width + 400) * 4 + 3];
+    return alpha > 0 && alpha < 255;
+  }, 'Window pixels actually become transparent');
   const beforeOpacity = await evaluate('Number(document.querySelector("[data-local-app]").style.opacity)');
   trigger('Control+Shift+]');
   await waitFor(() => evaluate('Number(document.querySelector("[data-local-app]").style.opacity) > ' + beforeOpacity), 'increase opacity');
@@ -228,10 +239,50 @@ app.whenReady().then(async () => {
   const restore = await evaluate('window.api.window.setTaskSurface("idle", "preparation", false)');
   assert.equal(await evaluate(`window.api.window.commitTaskSurface(${restore})`), true);
   assert.equal(await evaluate('window.api.app.downloadUpdate("https://workclimb.top/old.exe").then(r => r.status)'), 'unavailable');
-  // A dedicated written-test session must enter exam mode without entering the
-  // floating window first. Invoke the real registered capture shortcut.
+  // Configure written preferences through the real settings form.
+  await evaluate('document.querySelector("[data-page=settings]").click()');
+  await waitFor(() => evaluate('!!document.querySelector("[data-written-settings]")'), 'written settings');
+  await setValue('[data-written-setting=codingLanguage]', 'Go');
+  await waitFor(() => evaluate('window.api.settings.get().then(s=>s.writtenOptions.codingLanguage === "Go")'), 'persisted coding language');
+  await setValue('[data-written-setting=answerLanguage]', 'English');
+  await waitFor(() => evaluate('window.api.settings.get().then(s=>s.writtenOptions.answerLanguage === "English")'), 'persisted answer language');
+  await setValue('[data-written-setting=prompt]', '采用 ACM 输入输出格式');
+  await waitFor(() => evaluate('window.api.settings.get().then(s=>s.writtenOptions.prompt.includes("ACM"))'), 'persisted written prompt');
+  await setValue('[data-written-setting=knowledgeMode]', 'selected');
+  await waitFor(() => evaluate('!!document.querySelector(".written-document-options input")'), 'knowledge selection');
+  await evaluate('document.querySelector(".written-document-options input").click()');
+  await waitFor(() => evaluate('window.api.settings.get().then(s=>s.writtenOptions.documentIds.length === 1)'), 'selected knowledge');
+  await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+  fs.writeFileSync(path.join(artifacts, 'zhiyue-written-settings.png'), (await main.webContents.capturePage()).toPNG());
+  await evaluate('window.api.settings.patch({hotkeys:{"exam:exit":""}})');
+  await assert.rejects(evaluate('window.api.written.enter()'));
+  assert.equal((await evaluate('window.api.written.status()')).active, false, 'Cannot enter without a registered exit key');
+  assert.equal(main.isFocusable(), true);
+  await evaluate('window.api.settings.patch({hotkeys:{"exam:exit":"Ctrl+Shift+Z"}})');
   await evaluate('document.querySelector("[data-page=exam]").click()');
-  await waitFor(() => evaluate('!!document.querySelector(".written-toolbar") && !!document.querySelector(".written-welcome")'), 'written mode page');
+  await waitFor(() => evaluate('!!document.querySelector(".is-written-passive") && !!document.querySelector(".written-welcome")'), 'written passive floating mode');
+  await waitFor(() => main.isVisible(), 'written window revealed');
+  let writtenState = await evaluate('window.api.written.status()');
+  assert.equal(writtenState.active, true); assert.equal(writtenState.clickThrough, true); assert.equal(main.isFocusable(), false);
+  if (process.platform === 'win32') assert.equal(writtenState.captureProtection, 'exclude', 'Actual Windows display affinity must be WDA_EXCLUDEFROMCAPTURE');
+  assert.equal(await evaluate('!!document.querySelector(".composer")'), false);
+  assert.ok(await evaluate('Number(document.querySelector("[data-local-app]").style.opacity) > .1 && Number(document.querySelector("[data-local-app]").style.opacity) < .9'));
+  trigger('Control+Shift+X'); trigger('Control+Shift+E');
+  assert.equal((await evaluate('window.api.written.status()')).clickThrough, true, 'Mouse-through toggle and show cannot unlock written mode');
+  assert.equal(main.isFocusable(), false);
+  await evaluate('window.api.window.setInteractive(true)'); await evaluate('window.api.window.setFocusable(true)');
+  assert.equal((await evaluate('window.api.written.status()')).clickThrough, true, 'Generic IPC cannot unlock written mode');
+  const writtenOverlay = await waitFor(() => BrowserWindow.getAllWindows().find(w=>w !== main && !w.isDestroyed() && w.isVisible()), 'protected written shortcut overlay');
+  if (process.platform === 'win32') {
+    assert.deepEqual(nativeState(main), { affinity: 17, transparent: true, noActivate: true });
+    await waitFor(() => nativeState(writtenOverlay).transparent && nativeState(writtenOverlay).affinity === 17, 'overlay protection priming completes');
+    assert.equal(nativeState(writtenOverlay).affinity, 17);
+    assert.equal(nativeState(writtenOverlay).transparent, true);
+    main.setContentProtection(false);
+    await waitFor(() => nativeState(main).affinity === 17, 'written capture protection recovers after native state loss');
+  }
+  await assert.rejects(writtenOverlay.webContents.executeJavaScript('window.api.written.exit()'));
+  fs.writeFileSync(path.join(artifacts, 'zhiyue-written-passive.png'), (await main.webContents.capturePage()).toPNG());
   await waitFor(() => evaluate('window.api.hotkey.status().then(s=>s["screenshot:capture"])'), 'written capture shortcut registration');
   const writtenRequestCount = requests.length;
   trigger('Control+Q'); trigger('Control+Q');
@@ -240,6 +291,10 @@ app.whenReady().then(async () => {
   assert.equal(requests.length, writtenRequestCount + 1, 'Rapid repeated capture shortcuts submit once');
   assert.match(requests.at(-1).body.messages[0].content, /笔试模式/);
   assert.match(requests.at(-1).body.messages[0].content, /先给出明确答案/);
+  assert.match(requests.at(-1).body.messages[0].content, /默认编程语言：Go/);
+  assert.match(requests.at(-1).body.messages[0].content, /回答语言：English/);
+  assert.match(requests.at(-1).body.messages[0].content, /ACM 输入输出格式/);
+  assert.match(requests.at(-1).body.messages[0].content, /配合过期策略/);
   const writtenRecord = await evaluate('window.api.workspace.list().then(items=>items.find(item=>item.mode==="written"))');
   assert.ok(writtenRecord);
   fs.writeFileSync(path.join(artifacts, 'zhiyue-written.png'), (await main.webContents.capturePage()).toPNG());
@@ -248,12 +303,46 @@ app.whenReady().then(async () => {
   await waitFor(() => requests.length > beforeScrollCapture, 'written scrolling screenshot submits');
   await waitFor(() => evaluate('![...document.querySelectorAll("button")].some(el=>el.textContent === "停止生成")'), 'written scrolling answer');
   assert.equal(requests.at(-1).body.messages.length, 2, 'New screenshots do not reuse the previous question');
+  trigger('Control+Shift+Z');
+  await waitFor(() => evaluate('!document.querySelector(".is-focus") && !!document.querySelector("[data-written-settings]")'), 'exit written restores settings');
+  await waitFor(() => main.isVisible(), 'exit written reveal');
+  assert.equal(main.isFocusable(), true);
+  writtenState = await evaluate('window.api.written.status()');
+  assert.equal(writtenState.active, false); assert.equal(writtenState.clickThrough, false);
+  if (process.platform === 'win32') assert.equal(nativeState(main).transparent, false);
+  if (process.platform === 'win32') assert.equal(writtenState.captureProtection, 'none', 'Normal workbench restores its previous capture policy');
   await evaluate('document.querySelector("[data-page=history]").click()');
   await waitFor(() => evaluate('[...document.querySelectorAll(".history-item")].some(el=>el.innerText.includes("笔试模式"))'), 'written history label');
   await evaluate('[...document.querySelectorAll(".history-item")].find(el=>el.innerText.includes("笔试模式")).querySelector("button.primary").click()');
-  await waitFor(() => evaluate('!!document.querySelector(".written-toolbar") && document.querySelector(".chat-thread").innerText.includes("已收到图片")'), 'reopened written answer');
-  await evaluate('document.querySelector("[data-page=settings]").click()');
+  await waitFor(() => evaluate('!!document.querySelector(".is-written-passive") && document.querySelector(".chat-thread").innerText.includes("已收到图片")'), 'reopened written answer');
+  trigger('Control+Shift+H'); assert.equal(main.isVisible(), false);
+  trigger('Control+Shift+Z');
+  await waitFor(() => evaluate('!document.querySelector(".is-written-passive") && !!document.querySelector("[data-written-settings]")') && main.isVisible(), 'exit hidden written mode restores visible settings');
   await waitFor(() => evaluate('document.querySelector("[data-about-brand]")?.innerText.includes("gulinyue")'), 'developer attribution');
+  // Exiting during an unfinished capture must discard its late image result.
+  let releaseCapture;
+  const pendingCapture = new Promise((resolve) => { releaseCapture = resolve; });
+  ipcMain.removeHandler('screenshot:capture'); ipcMain.handle('screenshot:capture', () => pendingCapture);
+  await evaluate('document.querySelector("[data-page=exam]").click()');
+  await waitFor(() => evaluate('!!document.querySelector(".is-written-passive")'), 'written mode for cancellation');
+  const beforeLateCapture = requests.length;
+  trigger('Control+Q'); trigger('Control+Shift+Z');
+  await waitFor(() => evaluate('!document.querySelector(".is-written-passive")'), 'exit while capture is pending');
+  releaseCapture({ url: png, count: 1 });
+  await new Promise((resolve) => setTimeout(resolve, 160));
+  assert.equal(requests.length, beforeLateCapture, 'Late capture cannot submit after written exit');
+  ipcMain.removeHandler('screenshot:capture'); ipcMain.handle('screenshot:capture', () => ({ url: png, count: 1 }));
+  // Native exit also cancels an already-started model stream.
+  await evaluate('document.querySelector("[data-page=exam]").click()');
+  await waitFor(() => evaluate('!!document.querySelector(".is-written-passive")'), 'written mode for stream cancellation');
+  aborted = false;
+  const beforeActiveStream = requests.length;
+  const activeStream = evaluate('window.api.personalModels.run({requestId:"written-exit-stream",taskKind:"exam",slot:"screenshot",request:{messages:[{role:"user",content:"取消测试"}]}})');
+  await waitFor(() => requests.length > beforeActiveStream, 'written stream started');
+  trigger('Control+Shift+Z');
+  const stoppedStream = await activeStream;
+  assert.equal(stoppedStream.ok, false); assert.equal(stoppedStream.error.code, 'PERSONAL_MODEL_ABORTED');
+  await waitFor(() => aborted, 'written exit disconnected provider stream');
   for (const [providerId, apiMode] of [['anthropic', 'anthropic'], ['google', 'gemini']]) {
     const input = { slot: 'interview', providerId, apiMode, model: 'smoke-model', baseUrl: baseUrl + '/v1' };
     const models = await evaluate(`window.api.personalModels.discover(${JSON.stringify(input)})`);
@@ -268,7 +357,7 @@ app.whenReady().then(async () => {
   assert.equal(persistedProfiles.connections.interview.apiMode, 'gemini'); assert.equal(persistedProfiles.connections.interview.providerId, 'google');
   assert.deepEqual(unexpectedNetwork, []);
   assert.deepEqual(errors, []);
-  finish(0, 'No-login startup, provider settings/discovery/persistence, native Claude/Gemini text and vision IPC, knowledge retrieval, streaming/cancel/history, registered window movement/opacity/hide/show/click-through recovery/content scrolling, focus resize, task tokens and overlay access restrictions; providers mocked');
+  finish(0, 'Written mode atomic click-through/translucency/capture exclusion, safe hotkey exit including hidden mode, scoped preferences/knowledge, screenshot/scroll answer and history, generic window controls, native providers and restricted overlay; providers mocked');
 }).catch((error) => finish(1, error.stack));
 setTimeout(() => finish(1, 'Overall local smoke timeout'), 70000).unref();
 require('../out/main/index.js');

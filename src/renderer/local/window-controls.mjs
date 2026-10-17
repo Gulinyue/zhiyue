@@ -7,6 +7,7 @@ export function HotkeySettings({ settings, patchSettings, report }) {
   React.useEffect(() => { setDraft(settings?.hotkeys || {}); void window.api.hotkey.status().then(setStatus).catch((e) => report(e.message)); }, [settings?.hotkeys]);
   async function save() {
     if (!draft['window:show']?.trim()) { report('请保留解除隐藏快捷键，以便随时恢复窗口。'); return; }
+    if (!draft['exam:exit']?.trim()) { report('请保留退出笔试快捷键，以便退出不可点击的悬浮窗。'); return; }
     const seen = new Set();
     for (const value of Object.values(draft)) {
       if (!value) continue;

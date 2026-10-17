@@ -30,11 +30,11 @@
     ]
   },
   "src/main/hotkeys/modes.mjs": {
-    "lines": 96,
+    "lines": 97,
     "imports": []
   },
   "src/main/index.mjs": {
-    "lines": 3215,
+    "lines": 3311,
     "imports": [
       "./store/workspace.mjs",
       "./models/local-request.mjs",
@@ -67,6 +67,7 @@
       "./models/chatgpt-runtime.mjs",
       "./models/chatgpt-auth.mjs",
       "../shared/brand.mjs",
+      "../shared/written-options.mjs",
       "./models/chatgpt-adapter.mjs",
       "./models/native-adapters.mjs"
     ]
@@ -164,8 +165,10 @@
     ]
   },
   "src/main/store/default-settings.mjs": {
-    "lines": 285,
-    "imports": []
+    "lines": 287,
+    "imports": [
+      "../../shared/written-options.mjs"
+    ]
   },
   "src/main/store/knowledge-library.mjs": {
     "lines": 143,
@@ -244,7 +247,7 @@
     "imports": []
   },
   "src/preload/index.cjs": {
-    "lines": 160,
+    "lines": 166,
     "imports": []
   },
   "src/renderer/app.mjs": {
@@ -328,7 +331,7 @@
     ]
   },
   "src/renderer/local/app.mjs": {
-    "lines": 283,
+    "lines": 322,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../vendor/markdown.mjs",
@@ -338,7 +341,9 @@
       "./requests.mjs",
       "./overlay.mjs",
       "./model-card.mjs",
-      "./window-controls.mjs"
+      "./window-controls.mjs",
+      "./written-settings.mjs",
+      "../../shared/written-options.mjs"
     ]
   },
   "src/renderer/local/model-card.mjs": {
@@ -349,7 +354,7 @@
     ]
   },
   "src/renderer/local/overlay.mjs": {
-    "lines": 31,
+    "lines": 32,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../../shared/window-shortcuts.mjs",
@@ -357,16 +362,24 @@
     ]
   },
   "src/renderer/local/requests.mjs": {
-    "lines": 46,
+    "lines": 62,
     "imports": [
-      "../../shared/brand.mjs"
+      "../../shared/brand.mjs",
+      "../../shared/written-options.mjs"
     ]
   },
   "src/renderer/local/window-controls.mjs": {
-    "lines": 41,
+    "lines": 42,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../../shared/window-shortcuts.mjs"
+    ]
+  },
+  "src/renderer/local/written-settings.mjs": {
+    "lines": 20,
+    "imports": [
+      "../vendor/react-icons-state.mjs",
+      "../../shared/written-options.mjs"
     ]
   },
   "src/renderer/services/gateway.mjs": {
@@ -423,7 +436,7 @@
     "imports": []
   },
   "src/shared/channels.mjs": {
-    "lines": 94,
+    "lines": 98,
     "imports": []
   },
   "src/shared/conversation-modes.mjs": {
@@ -440,6 +453,10 @@
   },
   "src/shared/window-shortcuts.mjs": {
     "lines": 8,
+    "imports": []
+  },
+  "src/shared/written-options.mjs": {
+    "lines": 16,
     "imports": []
   }
 }

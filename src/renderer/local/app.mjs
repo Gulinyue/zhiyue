@@ -8,6 +8,8 @@ import { buildLocalRequest, chooseModelSlot } from './requests.mjs';
 import { LocalShortcutOverlay } from './overlay.mjs';
 import { ModelCard, ChatGptAccount } from './model-card.mjs';
 import { HotkeySettings, FocusResizeHandle } from './window-controls.mjs';
+import { WrittenSettings } from './written-settings.mjs';
+import { normalizeWrittenOptions } from '../../shared/written-options.mjs';
 
 const h = React.createElement;
 const api = window.api;
@@ -27,6 +29,10 @@ function App() {
   const [capturing, setCapturing] = React.useState(false);
   const [focus, setFocus] = React.useState(false);
   const [through, setThrough] = React.useState(false);
+  const [writtenActive, setWrittenActive] = React.useState(false);
+  const writtenState = React.useRef(false);
+  const transition = React.useRef(false);
+  const captureEpoch = React.useRef(0);
   const [settings, setSettings] = React.useState(null);
   const [models, setModels] = React.useState({ profiles: [], credentials: [] });
   const [documents, setDocuments] = React.useState([]);
@@ -52,16 +58,17 @@ function App() {
   React.useEffect(() => {
     mounted.current = true;
     Promise.all([api.settings.get().then(setSettings), reloadModels(), reloadHistory(), reloadDocuments(), api.screenshot.displays().then(setDisplays), api.localRecords.state(LOCAL_ACCOUNT).then(setRecordState)]).catch((error) => report(error.message));
+    const unsubWritten = api.written.onChange((state) => { void actions.current.writtenChanged?.(state); });
     const unsubSettings = api.settings.onChange((next) => { setSettings(next); setOpacityPreview(null); });
     const unsubOpacity = api.window.onOpacityPreviewed(setOpacityPreview);
     const unsubInteraction = api.window.onInteractionRecovered(() => { setThrough(false); setOpacityPreview(null); });
     const unsubHotkeys = api.hotkey.onTriggered((action) => actions.current.hotkey?.(action));
     const unsubReveal = api.window.onRevealRequested(async ({ token }) => { await paint(); await api.window.commitReveal(token); });
-    return () => { mounted.current = false; unsubSettings(); unsubOpacity(); unsubInteraction(); unsubHotkeys(); unsubReveal(); if (active.current) void api.personalModels.cancel(active.current); };
+    return () => { mounted.current = false; unsubWritten(); unsubSettings(); unsubOpacity(); unsubInteraction(); unsubHotkeys(); unsubReveal(); if (active.current) void api.personalModels.cancel(active.current); };
   }, []);
   React.useEffect(() => { if (follow.current) thread.current?.scrollTo({ top: thread.current.scrollHeight, behavior: 'auto' }); }, [conversation.messages, busy]);
   React.useEffect(() => { void api.hotkey.setAnswerScrollActive(page === 'chat' || page === 'exam'); return () => { void api.hotkey.setAnswerScrollActive(false); }; }, [page]);
-  React.useEffect(() => { void api.window.setWorkMode(page === 'exam' || focus ? 'exam' : 'idle'); }, [page]);
+  React.useEffect(() => { if (!writtenState.current) void api.window.setWorkMode(focus ? 'exam' : 'idle'); }, [page]);
   React.useEffect(() => { if (page === 'history') void reloadHistory().catch((error) => report(error.message)); }, [page]);
   React.useEffect(() => { document.documentElement.dataset.appSurface = focus ? 'focus' : 'preparation'; }, [focus]);
 
@@ -70,6 +77,7 @@ function App() {
     catch (error) { report(`记录保存失败：${error.message}`); }
   }
   async function send(question = draft, attachments = images) {
+    if (conversation.mode === 'written' && !writtenState.current) return;
     if (active.current || capturing || (!question.trim() && !attachments.length)) return;
     const slot = chooseModelSlot(models.profiles, attachments.length > 0);
     if (!slot) { setPage('settings'); report(attachments.length ? '请先配置截图模型。' : '请先配置一个模型连接。'); return; }
@@ -79,7 +87,7 @@ function App() {
     const user = { id: uid(), role: 'user', text: userText + (attachments.length ? `\n\n[附 ${attachments.length} 张截图]` : ''), images: attachments, status: 'completed' };
     const reply = { id: uid(), role: 'assistant', text: '', status: 'completed' };
     const next = { ...conversation, title: conversation.title || userText.slice(0, 45), updatedAt: Date.now(), messages: [...conversation.messages, user, reply] };
-    const request = buildLocalRequest({ question: userText, images: attachments, history: conversation.messages, documents, mode: conversation.mode, prompt: settings?.customPrompts || '' });
+    const request = buildLocalRequest({ question: userText, images: attachments, history: conversation.messages, documents, mode: conversation.mode, prompt: settings?.customPrompts || '', writtenOptions: settings?.writtenOptions });
     active.current = requestId;
     follow.current = true;
     setBusy(true); setDraft(''); setImages([]); setPage(conversation.mode === 'written' ? 'exam' : 'chat'); setNotice(null); setConversation(next);
@@ -112,9 +120,11 @@ function App() {
   async function capture(submit = false, scroll = false) {
     if (active.current || captureLease.current) return;
     if (submit && !chooseModelSlot(models.profiles, true)) { setPage('settings'); report('请先配置截图模型。'); return; }
+    const epoch = captureEpoch.current;
     captureLease.current = true; setCapturing(true);
     try {
       const result = await api.screenshot.capture({ origin: 'local', displayId: settings?.localScreenshotDisplayId || displays[0]?.id, scroll, enqueue: false });
+      if (epoch !== captureEpoch.current) return;
       if (!result.url) throw new Error(result.error?.message || '截图失败，请检查显示器选择。');
       const captured = result.urls || [result.url];
       const nextImages = submit ? captured : [...images, ...captured];
@@ -123,12 +133,35 @@ function App() {
       if (submit) {
         // send() cannot reuse the current capturing render; release the native lease first.
         setCapturing(false);
-        await actions.current.sendCaptured(draft || (conversation.mode === 'written' ? WRITTEN_CAPTURE_PROMPT : '请分析截图中的问题并解答。'), nextImages);
+        await actions.current.sendCaptured(draft || (conversation.mode === 'written' ? WRITTEN_CAPTURE_PROMPT : '请分析截图中的问题并解答。'), nextImages, epoch);
       }
     } catch (error) { report(error.message); }
-    finally { captureLease.current = false; setCapturing(false); }
+    finally { if (epoch === captureEpoch.current) { captureLease.current = false; setCapturing(false); } }
+  }
+  async function writtenChanged(state) {
+    writtenState.current = state.active; setWrittenActive(state.active);
+    setFocus(state.active); setThrough(state.active); setOpacityPreview(state.active ? state.opacity : null);
+    if (state.active) setPage('exam');
+    else { captureEpoch.current++; captureLease.current = false; setCapturing(false); setPage('settings'); }
+    await paint();
+    if (state.token !== null && state.token !== undefined) await api.window.commitTaskSurface(state.token);
+    if (state.error) report(state.error);
+  }
+  async function enterWritten(item) {
+    if (writtenState.current || transition.current) return;
+    if (active.current || captureLease.current) { report('请先停止生成或等待截图完成。'); return; }
+    if (!chooseModelSlot(models.profiles, true)) { setPage('settings'); report('请先配置一个支持图片的截图模型，再开启笔试模式。'); return; }
+    transition.current = true;
+    try {
+      const next = item || (conversation.mode === 'written' ? conversation : fresh('written'));
+      follow.current = true; setConversation(next); setDraft(''); setImages([]);
+      const state = await api.written.enter();
+      await writtenChanged(state);
+    } catch (error) { report(error.message); }
+    finally { transition.current = false; }
   }
   async function toggleFocus(next = !focus) {
+    if (writtenState.current) { await api.written.exit(); return; }
     try {
       setFocus(next);
       const token = await api.window.setTaskSurface(next || page === 'exam' ? 'exam' : 'idle', next ? 'focus' : 'preparation', next);
@@ -145,13 +178,14 @@ function App() {
     catch (error) { report(error.message); }
   }
   async function openConversation(id) {
-    try { const item = await api.workspace.read(id); if (item) { follow.current = true; setConversation(item); setImages([]); setDraft(''); setPage(item.mode === 'written' ? 'exam' : 'chat'); } }
+    try { const item = await api.workspace.read(id); if (item) { if (item.mode === 'written') { await enterWritten(item); return; } follow.current = true; setConversation(item); setImages([]); setDraft(''); setPage('chat'); } }
     catch (error) { report(error.message); }
   }
   function selectPage(id) {
-    if ((id === 'exam' && conversation.mode !== 'written') || (id === 'chat' && conversation.mode === 'written')) {
+    if (id === 'exam') { void enterWritten(); return; }
+    if (id === 'chat' && conversation.mode === 'written') {
       if (active.current || captureLease.current) { report('请先停止当前生成或等待截图完成。'); return; }
-      follow.current = true; setConversation(fresh(id === 'exam' ? 'written' : 'chat')); setDraft(''); setImages([]);
+      follow.current = true; setConversation(fresh()); setDraft(''); setImages([]);
     }
     setNotice(null); setPage(id);
   }
@@ -165,17 +199,20 @@ function App() {
     } catch (error) { report(error.message); }
   }
   actions.current = {
-    async sendCaptured(question, captured) {
+    writtenChanged,
+    async sendCaptured(question, captured, epoch) {
       // Wait for state to settle so hotkey capture and manual send share one path.
       await new Promise((resolve) => setTimeout(resolve, 0));
+      if (epoch !== captureEpoch.current) return;
       return actions.current.send(question, captured);
     },
     send,
     hotkey(action) {
       if (action === 'screenshot:capture') void capture(true);
       else if (action === 'screenshot:captureScrolling') void capture(true, true);
-      else if (action === 'exam:exit' || action === 'session:reset') void toggleFocus(false);
+      else if (action === 'exam:exit' || action === 'session:reset') { if (writtenState.current) void api.written.exit(); else void toggleFocus(false); }
       else if (action === 'window:toggleMouseThrough') {
+        if (writtenState.current) return;
         const next = !through; setThrough(next); setOpacityPreview(null); void api.window.setInteractive(!next); void api.window.setFocusable(!next); void api.window.previewOpacity(next ? settings?.mouseThroughOpacity || .48 : settings?.opacity || 1);
       } else if (action.startsWith('answer:scroll')) {
         const root = thread.current; if (!root) return;
@@ -191,12 +228,13 @@ function App() {
 
   function renderChat() {
     return h('div', { className: 'chat-layout' },
-      conversation.mode === 'written' && h('div', { className: 'written-toolbar no-drag' },
+      conversation.mode === 'written' && !writtenActive && h('div', { className: 'written-toolbar no-drag' },
         h('div', null, h('strong', null, '笔试模式'), h('span', { className: 'muted small' }, '截图后自动识题并生成答案')),
         h('div', { className: 'row wrap' },
           button(capturing ? '正在截图…' : '截图出答案', () => capture(true), { className: 'primary', disabled: busy || capturing, 'data-written-capture': true, title: settings?.hotkeys?.['screenshot:capture'] }),
           button('滚动截图出答案', () => capture(true, true), { disabled: busy || capturing, title: settings?.hotkeys?.['screenshot:captureScrolling'] }),
           button('新一题', () => { follow.current = true; setConversation(fresh('written')); setDraft(''); setImages([]); }, { disabled: busy || capturing }))),
+      writtenActive && h('div', { className: 'written-passive-banner' }, h('span', null, `笔试中 · 鼠标穿透 · ${api.runtime.platform === 'win32' ? 'Windows 捕获排除' : '非 Windows 系统'}`), h('kbd', null, `${settings?.hotkeys?.['screenshot:capture'] || '未设置'} 截图`), h('kbd', null, `${settings?.hotkeys?.['exam:exit'] || '未设置'} 退出笔试`)),
       h('div', { className: 'chat-thread', ref: thread, onScroll: () => { const el = thread.current; if (el) follow.current = el.scrollHeight - el.clientHeight - el.scrollTop < 32; } },
         !conversation.messages.length ? conversation.mode === 'written' ? h('div', { className: 'written-welcome' },
           h('img', { src: './assets/logo.svg', alt: '知跃标志', className: 'written-logo' }),
@@ -217,7 +255,7 @@ function App() {
             h('div', { className: 'message-label' }, message.role === 'user' ? '你' : BRAND.name, message.status !== 'completed' && h('span', null, message.status === 'cancelled' ? ' · 已停止' : ' · 请求未完成')),
             h(MarkdownBody, { markdown: message.text || '正在思考…' }),
             message.images?.length ? h('div', { className: 'message-images' }, ...message.images.map((src, i) => h('img', { src, key: i, alt: `提问截图 ${i + 1}` }))) : null))),
-      h('div', { className: 'composer-wrap' },
+      !writtenActive && h('div', { className: 'composer-wrap' },
         images.length > 0 && h('div', { className: 'attachments' }, ...images.map((src, i) => h('div', { key: i }, h('img', { src, alt: `待发送截图 ${i + 1}` }), button('×', () => setImages(images.filter((_, index) => index !== i)), { 'aria-label': `移除截图 ${i + 1}` })))),
         h('form', { className: 'composer', onSubmit: (event) => { event.preventDefault(); void send(); } },
           h('textarea', { value: draft, onChange: (event) => setDraft(event.target.value), placeholder: conversation.mode === 'written' ? '可选：指定语言或补充要求，然后截图；也可直接粘贴题目…' : conversation.mode === 'practice' ? '描述目标岗位，或输入你的回答…' : '输入问题，或添加截图…', maxLength: 20000, rows: 3, 'aria-label': '提问内容', onKeyDown: (event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } } }),
@@ -246,6 +284,7 @@ function App() {
   }
   function renderSettings() {
     return h('div', { className: 'page-scroll' }, h('div', { className: 'page-heading' }, h('h1', null, '连接与设置'), h('p', null, '选择模型服务商，使用 API Key 或官方 ChatGPT 账号授权。')),
+      h(WrittenSettings, { settings, documents, patchSettings, start: () => enterWritten() }),
       h(ChatGptAccount, { report, reload: reloadModels }),
       h('div', { className: 'model-grid' }, h(ModelCard, { key: 'interview', slot: 'interview', title: '文字问答模型', snapshot: models, reload: reloadModels, report }), h(ModelCard, { key: 'screenshot', slot: 'screenshot', title: '截图分析模型', snapshot: models, reload: reloadModels, report })),
       h('section', { className: 'panel' }, h('h3', null, '窗口与本机记录'),
@@ -262,7 +301,7 @@ function App() {
       h('section', { className: 'panel capability-note' }, h('h3', null, '这个版本支持什么'), h('p', null, '已支持文字问答、笔试截图出答案、文字模拟面试、本机知识库和会话记录。语音识别和手机远控尚未接入。'), h('p', { className: 'muted small' }, '社区版不依赖应用账号服务器。使用在线模型时仍需联网；使用本机模型服务时，请填写 localhost 或 127.0.0.1 接口。')));
   }
   const pages = [['chat', '✦', '工作台'], ['exam', '▣', '笔试模式'], ['knowledge', '▤', '本机知识库'], ['history', '◷', '会话记录'], ['settings', '⚙', '连接与设置']];
-  return h('div', { className: `local-app ${focus ? 'is-focus' : ''}`, 'data-local-app': true, style: { opacity: opacityPreview ?? (through ? settings?.mouseThroughOpacity || 0.48 : settings?.opacity || 1) } },
+  return h('div', { className: `local-app ${focus ? 'is-focus' : ''} ${writtenActive ? 'is-written-passive' : ''}`, 'data-local-app': true, 'data-written-active': writtenActive, style: { opacity: opacityPreview ?? (writtenActive ? normalizeWrittenOptions(settings?.writtenOptions).opacity : through ? settings?.mouseThroughOpacity || 0.48 : settings?.opacity || 1) } },
     !focus && h('aside', { className: 'sidebar' }, h('div', { className: 'brand drag' }, h('img', { src: './assets/logo.svg', alt: '知跃 Logo' }), h('b', null, BRAND.name), h('span', null, '社区版')),
       button('＋ 新会话', () => { setConversation(fresh(page === 'exam' ? 'written' : 'chat')); setImages([]); setDraft(''); setPage(page === 'exam' ? 'exam' : 'chat'); }, { className: 'new-conversation', disabled: busy || capturing }),
       h('nav', null, ...pages.map(([id, icon, label]) => button(h(React.Fragment, null, h('span', null, icon), label), () => selectPage(id), { key: id, className: page === id ? 'nav-item active' : 'nav-item', 'data-page': id }))),
@@ -275,7 +314,7 @@ function App() {
           h('input', { type: 'range', min: .01, max: 1, step: .01, value: opacityPreview ?? (through ? settings?.mouseThroughOpacity || .48 : settings?.opacity || 1), onChange: (e) => patchSettings(through ? { mouseThroughOpacity: Number(e.target.value) } : { opacity: Number(e.target.value) }) })),
         button('隐藏', () => api.window.hide(), { title: `${settings?.hotkeys?.['window:show'] || '托盘'} 解除隐藏`, 'aria-label': '隐藏窗口' }), button(focus ? '退出专注' : '专注窗口', () => toggleFocus()), button('—', () => api.window.minimize(), { 'aria-label': '最小化' }), button('×', () => api.window.close(), { 'aria-label': '关闭窗口' }))),
       notice && h('div', { className: notice.success ? 'notice success' : 'notice', role: notice.success ? 'status' : 'alert' }, h('span', null, notice.text), button('×', () => setNotice(null), { 'aria-label': '关闭提示' })),
-      page === 'chat' || page === 'exam' ? renderChat() : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && h(FocusResizeHandle));
+      page === 'chat' || page === 'exam' ? renderChat() : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && !writtenActive && h(FocusResizeHandle));
 }
 
 const surface = new URLSearchParams(window.location.search).get('surface');

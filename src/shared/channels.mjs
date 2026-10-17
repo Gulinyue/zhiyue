@@ -1,6 +1,10 @@
 
 
 const IPC = {
+  writtenEnter: 'written:enter',
+  writtenExit: 'written:exit',
+  writtenStatus: 'written:status',
+  writtenChanged: 'written:changed',
   windowToggle: "window:toggle",
   windowMinimize: "window:minimize",
   windowToggleMaximize: "window:toggleMaximize",

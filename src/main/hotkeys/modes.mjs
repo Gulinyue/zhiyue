@@ -2,6 +2,7 @@
 
 const WORK_MODES = ["idle", "exam", "interview"];
 const ALWAYS_ALLOWED_HOTKEYS = /* @__PURE__ */ new Set([
+  'exam:exit',
   "window:toggle",
   "window:hide",
   "window:show",

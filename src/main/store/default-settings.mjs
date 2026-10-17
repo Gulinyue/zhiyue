@@ -1,4 +1,4 @@
-
+import { DEFAULT_WRITTEN_OPTIONS, normalizeWrittenOptions } from '../../shared/written-options.mjs';
 
 const MOVE_FALLBACKS = {
   "window:moveUp": "Alt+Shift+Up",
@@ -108,6 +108,7 @@ function normalizeVoiceLlmMaxTokens(value) {
   );
 }
 const DEFAULT_SETTINGS = {
+  writtenOptions: DEFAULT_WRITTEN_OPTIONS,
   hotkeys: DEFAULT_HOTKEYS,
   theme: { outer: "#F2C6FF", inner: "#2A1744" },
   language: "Python",
@@ -239,6 +240,7 @@ function enforceDesktopSettingsPolicy(settings, options) {
   const answerScrollDown = settings.hotkeys["answer:scrollDown"] === "Alt+PageDown" ? DEFAULT_HOTKEYS["answer:scrollDown"] : settings.hotkeys["answer:scrollDown"];
   return {
     ...settings,
+    writtenOptions: normalizeWrittenOptions(settings.writtenOptions),
     hotkeys: {
       ...DEFAULT_HOTKEYS,
       ...settings.hotkeys,

@@ -20,6 +20,12 @@ electron.ipcRenderer.on(
   }
 );
 const api = {
+  written: {
+    enter: () => electron.ipcRenderer.invoke(IPC.writtenEnter),
+    exit: () => electron.ipcRenderer.invoke(IPC.writtenExit),
+    status: () => electron.ipcRenderer.invoke(IPC.writtenStatus),
+    onChange: (cb) => subscribe(IPC.writtenChanged, cb)
+  },
   runtime: { platform: process.platform, arch: process.arch, edition: 'community', brand: BRAND },
   chatgpt: {
     status: () => electron.ipcRenderer.invoke('chatgpt:status'),

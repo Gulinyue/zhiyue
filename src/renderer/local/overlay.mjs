@@ -22,8 +22,9 @@ export function LocalShortcutOverlay() {
     const observer = new ResizeObserver(report); observer.observe(el); report(); return () => observer.disconnect();
   }, [ready, hotkeys]);
   const gated = new URLSearchParams(window.location.search).get('captureProtection') === 'required';
-  if (gated && !ready) return null;
-  return h('div', { className: 'local-shortcuts', ref: root, style: { opacity } },
+  // Keep a measurable, invisible layout before native protection is confirmed.
+  // The native protection primer waits for this layout report before revealing.
+  return h('div', { className: 'local-shortcuts', ref: root, style: { opacity, visibility: gated && !ready ? 'hidden' : 'visible' } },
     h('strong', null, `${BRAND.name} · 快捷键`),
     ...WINDOW_SHORTCUTS.filter(([, action]) => ['screenshot:capture', 'screenshot:captureScrolling', 'window:hide', 'window:show', 'window:moveUp', 'window:moveDown', 'answer:scrollUp', 'answer:scrollDown', 'window:opacityDown', 'window:opacityUp', 'window:toggleMouseThrough', 'exam:exit'].includes(action)).map(([label, action]) =>
       h('div', { key: action }, h('span', null, label), h('kbd', null, hotkeys[action] || '未设置'))));
