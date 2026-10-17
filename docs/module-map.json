@@ -376,7 +376,7 @@
     ]
   },
   "src/renderer/local/written-settings.mjs": {
-    "lines": 21,
+    "lines": 27,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../../shared/written-options.mjs"

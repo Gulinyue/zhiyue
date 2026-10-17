@@ -313,7 +313,7 @@ app.whenReady().then(async () => {
   if (process.platform === 'win32') assert.equal(writtenState.captureProtection, 'none', 'Normal workbench restores its previous capture policy');
   // Disabling hints hides both the inline strip and auxiliary native window,
   // while the actual capture and exit shortcuts continue to work.
-  await evaluate('document.querySelector("[data-written-setting=showShortcutHints]").click()');
+  await evaluate('document.querySelector("[data-shortcut-hints=hide]").click()');
   await waitFor(() => evaluate('window.api.settings.get().then(s=>s.writtenOptions.showShortcutHints === false)'), 'hints disabled and persisted');
   await evaluate('document.querySelector("[data-page=exam]").click()');
   await waitFor(() => evaluate('!!document.querySelector(".is-written-passive")') && main.isVisible(), 'written mode without hints');
@@ -326,7 +326,7 @@ app.whenReady().then(async () => {
   await waitFor(() => evaluate(`window.api.workspace.read(${JSON.stringify(writtenRecord.id)}).then(r=>r.messages.length === ${beforeNoHintMessages + 2} && r.messages.at(-1).status === 'completed')`), 'answer without hints');
   trigger('Control+Shift+Z');
   await waitFor(() => evaluate('!document.querySelector(".is-written-passive") && !!document.querySelector("[data-written-settings]")'), 'exit shortcut works without hints');
-  await evaluate('document.querySelector("[data-written-setting=showShortcutHints]").click()');
+  await evaluate('document.querySelector("[data-shortcut-hints=show]").click()');
   await waitFor(() => evaluate('window.api.settings.get().then(s=>s.writtenOptions.showShortcutHints === true)'), 'hints enabled again');
   await evaluate('document.querySelector("[data-page=history]").click()');
   await waitFor(() => evaluate('[...document.querySelectorAll(".history-item")].some(el=>el.innerText.includes("笔试模式"))'), 'written history label');
