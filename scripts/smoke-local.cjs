@@ -241,6 +241,8 @@ app.whenReady().then(async () => {
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.app.openSupport()'));
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.app.openFeedback()'));
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.interview.connection()'));
+  await assert.rejects(overlay.webContents.executeJavaScript('window.api.tutorial.openLink("deepseek")'));
+  await assert.rejects(overlay.webContents.executeJavaScript('window.api.tutorial.copyValue("deepseekBase")'));
   assert.equal(externalUrls.length, 0);
   const restore = await evaluate('window.api.window.setTaskSurface("idle", "preparation", false)');
   assert.equal(await evaluate(`window.api.window.commitTaskSurface(${restore})`), true);

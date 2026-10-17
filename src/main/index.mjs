@@ -2,6 +2,7 @@ import { registerWorkspaceIpc } from "./store/workspace.mjs";
 import { normalizeLocalModelRunInput } from "./models/local-request.mjs";
 import { isLoopbackHostname } from "./models/validation.mjs";
 import { IPC } from "../shared/channels.mjs";
+import { GUIDE_LINKS, GUIDE_VALUES } from '../shared/onboarding.mjs';
 import { createIpcGateway } from "./ipc/gateway.mjs";
 import * as electron from "electron";
 import * as path from "node:path";
@@ -2456,6 +2457,16 @@ function registerIpc() {
   if (ipcRegistered) return;
   ipcRegistered = true;
   registerWorkspaceIpc(mainIpc);
+  mainIpc.handle('tutorial:openLink', (_event, id) => {
+    if (typeof id !== 'string' || !Object.hasOwn(GUIDE_LINKS, id)) throw new Error('无效的教程链接。');
+    return electron.shell.openExternal(GUIDE_LINKS[id]);
+  });
+  mainIpc.handle('tutorial:copyValue', (_event, id) => {
+    if (typeof id !== 'string' || !Object.hasOwn(GUIDE_VALUES, id)) throw new Error('无效的教程示例。');
+    if (getSettings().disableClipboard) throw new Error('当前设置禁用了剪贴板，请选中示例文字手动复制。');
+    electron.clipboard.writeText(GUIDE_VALUES[id]);
+    return { copied: true };
+  });
   mainIpc.handle('interview:connection', () => speechConnection());
   mainIpc.handle('interview:saveConnection', (_event, raw) => saveSpeechConnection(raw));
   mainIpc.handle('interview:discoverModels', (_event, raw) => discoverSpeechModels(raw));

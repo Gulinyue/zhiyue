@@ -20,6 +20,10 @@ electron.ipcRenderer.on(
   }
 );
 const api = {
+  tutorial: {
+    openLink: (id) => electron.ipcRenderer.invoke('tutorial:openLink', id),
+    copyValue: (id) => electron.ipcRenderer.invoke('tutorial:copyValue', id),
+  },
   interview: {
     connection: () => electron.ipcRenderer.invoke('interview:connection'),
     saveConnection: (value) => electron.ipcRenderer.invoke('interview:saveConnection', value),

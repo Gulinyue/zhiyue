@@ -34,7 +34,7 @@ export function ChatGptAccount({ report, reload }) {
       }, { disabled: pending })));
 }
 
-export function ModelCard({ slot, title, snapshot, reload, report }) {
+export function ModelCard({ slot, title, snapshot, reload, report, example }) {
   const profile = snapshot.profiles?.find((item) => item.slot === slot);
   const credential = snapshot.credentials?.find((item) => item.slot === slot);
   const [baseUrl, setBaseUrl] = React.useState(profile?.baseUrl || 'https://api.openai.com/v1');
@@ -42,13 +42,15 @@ export function ModelCard({ slot, title, snapshot, reload, report }) {
   const [apiMode, setApiMode] = React.useState(profile?.apiMode || 'chat-completions');
   const [model, setModel] = React.useState(profile?.model || '');
   const [apiKey, setApiKey] = React.useState('');
+  const [thinkingLevel, setThinkingLevel] = React.useState(profile?.thinkingLevel);
   const [busy, setBusy] = React.useState(false);
   const [available, setAvailable] = React.useState([]);
   React.useEffect(() => {
-    if (profile) { setBaseUrl(profile.baseUrl); setModel(profile.model); setProviderId(profile.providerId || 'custom'); setApiMode(profile.apiMode); setAvailable([]); }
+    if (profile) { setBaseUrl(profile.baseUrl); setModel(profile.model); setProviderId(profile.providerId || 'custom'); setApiMode(profile.apiMode); setThinkingLevel(profile.thinkingLevel); setAvailable([]); }
   }, [profile?.baseUrl, profile?.model, profile?.providerId, profile?.apiMode]);
+  React.useEffect(() => { if (example) { setBaseUrl(example.baseUrl); setProviderId(example.providerId); setApiMode(example.apiMode); setModel(example.model); setThinkingLevel(example.thinkingLevel); setApiKey(''); setAvailable([]); } }, [example]);
   const account = providerId === 'chatgpt';
-  const input = () => ({ slot, providerId, apiMode, baseUrl: baseUrl.trim(), model: model.trim(), ...(apiKey.trim() && !account ? { apiKey: apiKey.trim() } : {}) });
+  const input = () => ({ slot, providerId, apiMode, baseUrl: baseUrl.trim(), model: model.trim(), ...(thinkingLevel ? { thinkingLevel } : {}), ...(apiKey.trim() && !account ? { apiKey: apiKey.trim() } : {}) });
   async function save(test = false) {
     if (!model.trim()) { report('请填写模型 ID 或获取模型列表。'); return; }
     setBusy(true);
@@ -58,10 +60,10 @@ export function ModelCard({ slot, title, snapshot, reload, report }) {
       setApiKey(''); await reload();
     } catch (error) { report(error.message); } finally { setBusy(false); }
   }
-  return h('section', { className: 'panel model-card' },
+  return h('section', { className: 'panel model-card', 'data-model-slot': slot },
     h('div', { className: 'row between' }, h('h3', null, title), h('span', { className: profile?.enabled ? 'status ready' : 'status' }, profile?.enabled ? '已配置' : '未配置')),
     h('label', { className: 'field' }, h('span', null, '模型来源'), h('select', { value: providerId, 'data-model-field': 'provider', onChange: (e) => {
-      const preset = modelProvider(e.target.value); setProviderId(preset.id); setBaseUrl(preset.baseUrl); setApiMode(preset.apiMode); setModel(''); setApiKey(''); setAvailable([]);
+      const preset = modelProvider(e.target.value); setProviderId(preset.id); setBaseUrl(preset.baseUrl); setApiMode(preset.apiMode); setModel(preset.id === 'deepseek' ? 'deepseek-flash' : ''); setThinkingLevel(preset.id === 'deepseek' ? 'none' : undefined); setApiKey(''); setAvailable([]);
     } }, ...MODEL_PROVIDERS.map((p) => h('option', { value: p.id, key: p.id }, p.label)))),
     !account && field('Base URL', { value: baseUrl, 'data-model-field': 'base', onChange: (e) => { setBaseUrl(e.target.value); setApiKey(''); setAvailable([]); }, spellCheck: false }),
     providerId.startsWith('qwen-') && h('p', { className: 'muted small' }, '新账号请使用阿里云控制台提供的工作空间专属 Base URL，替换上方兼容域名。'),
@@ -75,6 +77,7 @@ export function ModelCard({ slot, title, snapshot, reload, report }) {
     available.length > 0 && h('label', { className: 'field' }, h('span', null, '可用模型'), h('select', { value: available.some((m) => m.id === model) ? model : '', onChange: (e) => setModel(e.target.value) }, h('option', { value: '' }, '选择模型…'), ...available.map((m) => h('option', { key: m.id, value: m.id }, m.name === m.id ? m.id : `${m.name} · ${m.id}`)))),
     field(providerId === 'azure' ? '模型部署名称' : '模型 ID', { value: model, 'data-model-field': 'model', onChange: (e) => setModel(e.target.value), placeholder: '选择模型，或填写服务商提供的 ID', spellCheck: false }),
     h('p', { className: 'muted small' }, slot === 'screenshot' ? '请选择支持图片输入的模型。测试连接会发送一张测试图片。' : '用于文字问答和文字模拟面试。'),
+    providerId === 'deepseek' && h('label', { className: 'check' }, h('input', { type: 'checkbox', checked: thinkingLevel === 'none', 'data-model-thinking': true, onChange: e => setThinkingLevel(e.target.checked ? 'none' : undefined) }), '关闭深度思考，优先速度'),
     snapshot.credentialIssues?.[slot] && h('p', { className: 'muted small' }, snapshot.credentialIssues[slot]),
     h('div', { className: 'row' }, button('保存连接', () => save(false), { className: 'primary', disabled: busy }), button('测试并保存', () => save(true), { disabled: busy }),
       profile?.enabled && button('移除', async () => { try { await api.personalModels.remove(slot); await reload(); report('模型连接已移除。', true); } catch (e) { report(e.message); } }, { disabled: busy, className: 'danger-link' })));
