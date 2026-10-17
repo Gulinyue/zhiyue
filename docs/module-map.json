@@ -34,12 +34,13 @@
     "imports": []
   },
   "src/main/index.mjs": {
-    "lines": 3363,
+    "lines": 3374,
     "imports": [
       "./store/workspace.mjs",
       "./models/local-request.mjs",
       "./models/validation.mjs",
       "../shared/channels.mjs",
+      "../shared/onboarding.mjs",
       "./ipc/gateway.mjs",
       "electron",
       "node:path",
@@ -269,7 +270,7 @@
     "imports": []
   },
   "src/preload/index.cjs": {
-    "lines": 181,
+    "lines": 185,
     "imports": []
   },
   "src/renderer/app.mjs": {
@@ -353,7 +354,7 @@
     ]
   },
   "src/renderer/local/app.mjs": {
-    "lines": 356,
+    "lines": 370,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../vendor/markdown.mjs",
@@ -368,7 +369,16 @@
       "../../shared/written-options.mjs",
       "./developer-contact.mjs",
       "./speech-settings.mjs",
-      "./live-interview.mjs"
+      "./live-interview.mjs",
+      "./beginner-guide.mjs",
+      "../../shared/onboarding.mjs"
+    ]
+  },
+  "src/renderer/local/beginner-guide.mjs": {
+    "lines": 32,
+    "imports": [
+      "../vendor/react-icons-state.mjs",
+      "../../shared/onboarding.mjs"
     ]
   },
   "src/renderer/local/developer-contact.mjs": {
@@ -389,7 +399,7 @@
     "imports": []
   },
   "src/renderer/local/live-interview.mjs": {
-    "lines": 140,
+    "lines": 147,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../vendor/markdown.mjs",
@@ -401,7 +411,7 @@
     ]
   },
   "src/renderer/local/model-card.mjs": {
-    "lines": 82,
+    "lines": 85,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../../shared/model-providers.mjs"
@@ -416,14 +426,15 @@
     ]
   },
   "src/renderer/local/requests.mjs": {
-    "lines": 63,
+    "lines": 66,
     "imports": [
       "../../shared/brand.mjs",
-      "../../shared/written-options.mjs"
+      "../../shared/written-options.mjs",
+      "../../shared/interview-options.mjs"
     ]
   },
   "src/renderer/local/speech-settings.mjs": {
-    "lines": 73,
+    "lines": 78,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../../shared/interview-options.mjs",
@@ -508,7 +519,7 @@
     "imports": []
   },
   "src/shared/interview-audio.mjs": {
-    "lines": 50,
+    "lines": 53,
     "imports": []
   },
   "src/shared/interview-options.mjs": {
@@ -521,6 +532,10 @@
   },
   "src/shared/model-providers.mjs": {
     "lines": 32,
+    "imports": []
+  },
+  "src/shared/onboarding.mjs": {
+    "lines": 102,
     "imports": []
   },
   "src/shared/speech-providers.mjs": {

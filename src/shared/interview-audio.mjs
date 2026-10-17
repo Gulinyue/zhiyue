@@ -23,8 +23,11 @@ export class VoiceSegmenter {
     else if (this.samples >= this.maxSamples) { if (this.voiced >= this.sampleRate * .25) this.emit(false); else this.reset(); }
   }
   emit(final) {
-    const samples = new Float32Array(this.samples); let position = 0;
-    for (const frame of this.frames) { samples.set(frame, position); position += frame.length; }
+    // Retain 150 ms of trailing silence, without making the remote ASR process
+    // the whole local pause used to decide that a question has ended.
+    const trim = final ? Math.max(0, this.silence - Math.round(this.sampleRate * .15)) : 0;
+    const samples = new Float32Array(Math.max(0, this.samples - trim)); let position = 0;
+    for (const frame of this.frames) { const part = frame.subarray(0, Math.max(0, samples.length - position)); samples.set(part, position); position += part.length; }
     const audio = this.segmentVoiced ? encodePcm16(samples) : new Uint8Array();
     this.frames = []; this.samples = 0; this.segmentVoiced = 0;
     this.onSegment({ audio, final });

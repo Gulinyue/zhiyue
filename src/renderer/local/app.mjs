@@ -13,6 +13,8 @@ import { normalizeWrittenOptions } from '../../shared/written-options.mjs';
 import { DeveloperContact } from './developer-contact.mjs';
 import { SpeechSettings } from './speech-settings.mjs';
 import { LiveInterview } from './live-interview.mjs';
+import { BeginnerGuide } from './beginner-guide.mjs';
+import { GUIDE_EXAMPLES } from '../../shared/onboarding.mjs';
 
 const h = React.createElement;
 const api = window.api;
@@ -25,6 +27,7 @@ const paint = () => new Promise((resolve) => { const timeout = setTimeout(resolv
 
 function App() {
   const [page, setPage] = React.useState('chat');
+  const [guideExamples, setGuideExamples] = React.useState({});
   const [interviewSeed, setInterviewSeed] = React.useState(null);
   const [interviewKey, setInterviewKey] = React.useState(0);
   const [interviewPassive, setInterviewPassive] = React.useState(false);
@@ -220,6 +223,16 @@ function App() {
     }
     setNotice(null); setPage(id);
   }
+  async function configureFromGuide(target) {
+    if (!Object.hasOwn(GUIDE_EXAMPLES, target)) return;
+    setGuideExamples({ [target]: { ...GUIDE_EXAMPLES[target] } }); setPage('settings');
+    report('已预填教程示例，尚未替换已保存的连接。请填写自己的 Key 后测试并保存。', true);
+    await paint();
+    const card = document.querySelector(target === 'speech' ? '[data-speech-settings]' : `[data-model-slot="${target}"]`);
+    card?.scrollIntoView({ block: 'start' }); card?.querySelector('input[type=password]')?.focus({ preventScroll: true });
+    card?.classList.add('guide-highlight'); setTimeout(() => card?.classList.remove('guide-highlight'), 3000);
+    setGuideExamples({});
+  }
   async function saveDocument() {
     if (!documentTitle.trim() || !documentText.trim()) { report('请填写资料标题和正文。'); return; }
     if (documentText.length > 100000) { report('单份文本最多 10 万字，请拆分资料。'); return; }
@@ -282,7 +295,7 @@ function App() {
             button(h(React.Fragment, null, h('b', null, '✦ 自由问答'), h('span', null, '分析问题、梳理思路')), () => setConversation(fresh('chat')), { className: conversation.mode === 'chat' ? 'start-card selected' : 'start-card' }),
             button(h(React.Fragment, null, h('b', null, '▣ 截图分析'), h('span', null, '选取屏幕内容再提问')), () => capture(false), { className: 'start-card', disabled: capturing }),
             button(h(React.Fragment, null, h('b', null, '◇ 文字模拟面试'), h('span', null, '逐题交流与反馈')), () => { setConversation(fresh('practice')); setDraft('请为我开始一场模拟面试，先询问我的目标岗位。'); }, { className: conversation.mode === 'practice' ? 'start-card selected' : 'start-card' })),
-          !chooseModelSlot(models.profiles, false) && h('div', { className: 'onboarding' }, h('div', null, h('strong', null, '先连接一个模型'), h('p', null, '填写模型服务商的 Base URL、模型名称和 API Key。')), button('设置模型 →', () => setPage('settings'), { className: 'primary' }))) :
+          !chooseModelSlot(models.profiles, false) && h('div', { className: 'onboarding' }, h('div', null, h('strong', null, '先连接一个模型'), h('p', null, '填写模型服务商的 Base URL、模型名称和 API Key。')), button('新手教程 →', () => setPage('guide'), { className: 'primary' }), button('直接设置模型', () => setPage('settings')))) :
           conversation.messages.map((message) => h('article', { className: `message ${message.role}`, key: message.id },
             h('div', { className: 'message-label' }, message.role === 'user' ? '你' : BRAND.name, message.status !== 'completed' && h('span', null, message.status === 'cancelled' ? ' · 已停止' : ' · 请求未完成')),
             h(MarkdownBody, { markdown: message.text || '正在思考…' }),
@@ -317,10 +330,11 @@ function App() {
   function renderSettings() {
     return h('div', { className: 'page-scroll' }, h('div', { className: 'page-heading' }, h('h1', null, '连接与设置'), h('p', null, '选择模型服务商，使用 API Key 或官方 ChatGPT 账号授权。')),
       h(DeveloperContact, { report }),
-      h(SpeechSettings, { settings, patchSettings, report, start: () => enterInterview() }),
+      h('section', { className: 'panel guide-entry', 'data-guide-entry': true }, h('div', null, h('h3', null, '第一次使用？从零开始配置'), h('p', null, '用 DeepSeek 配置文字与截图，用百炼北京配置语音。注册、找 Key、复制粘贴和第一次使用，一步一步教你。')), button('打开新手教程 →', () => setPage('guide'), { className: 'primary' })),
+      h(SpeechSettings, { settings, patchSettings, report, start: () => enterInterview(), example: guideExamples.speech }),
       h(WrittenSettings, { settings, documents, patchSettings, start: () => enterWritten() }),
       h(ChatGptAccount, { report, reload: reloadModels }),
-      h('div', { className: 'model-grid' }, h(ModelCard, { key: 'interview', slot: 'interview', title: '文字问答模型', snapshot: models, reload: reloadModels, report }), h(ModelCard, { key: 'screenshot', slot: 'screenshot', title: '截图分析模型', snapshot: models, reload: reloadModels, report })),
+      h('div', { className: 'model-grid' }, h(ModelCard, { key: 'interview', slot: 'interview', title: '文字问答模型', snapshot: models, reload: reloadModels, report, example: guideExamples.interview }), h(ModelCard, { key: 'screenshot', slot: 'screenshot', title: '截图分析模型', snapshot: models, reload: reloadModels, report, example: guideExamples.screenshot })),
       h('section', { className: 'panel' }, h('h3', null, '窗口与本机记录'),
         h('div', { className: 'settings-grid' },
           h('label', { className: 'field' }, h('span', null, '窗口模式（重启后生效）'), h('select', { value: settings?.windowMode || 'normal', onChange: (event) => patchSettings({ windowMode: event.target.value }) }, h('option', { value: 'normal' }, '普通窗口'), h('option', { value: 'stealth' }, '隐身浮层'))),
@@ -334,7 +348,7 @@ function App() {
         h('div', { className: 'about-brand-copy' }, h('h3', null, BRAND.name + ' · ' + BRAND.englishName + ' ' + BRAND.version), h('p', null, BRAND.tagline), h('p', { className: 'developer-watermark' }, '开发者 · ' + BRAND.developer), h('p', { className: 'muted small' }, '社区免费版 · 连接自己的模型，数据保存在本机。'))),
       h('section', { className: 'panel capability-note' }, h('h3', null, '这个版本支持什么'), h('p', null, '支持实时面试系统收音、分句转写与自动回答，以及文字问答、笔试截图出答案、文字模拟面试、本机知识库和会话记录。手机远控尚未接入。'), h('p', { className: 'muted small' }, '社区版不依赖应用账号服务器。使用在线语音与回答模型时需联网；也可连接本机兼容服务。')));
   }
-  const pages = [['chat', '✦', '工作台'], ['interview', '◉', '实时面试'], ['exam', '▣', '笔试模式'], ['knowledge', '▤', '本机知识库'], ['history', '◷', '会话记录'], ['settings', '⚙', '连接与设置']];
+  const pages = [['chat', '✦', '工作台'], ['interview', '◉', '实时面试'], ['exam', '▣', '笔试模式'], ['knowledge', '▤', '本机知识库'], ['history', '◷', '会话记录'], ['guide', '?', '新手教程'], ['settings', '⚙', '连接与设置']];
   return h('div', { className: `local-app ${focus ? 'is-focus' : ''} ${writtenActive ? 'is-written-passive' : ''} ${interviewPassive ? 'is-interview-passive' : ''}`, 'data-local-app': true, 'data-written-active': writtenActive, 'data-interview-passive': interviewPassive, style: { opacity: opacityPreview ?? (writtenActive ? normalizeWrittenOptions(settings?.writtenOptions).opacity : interviewPassive ? settings?.interviewOptions?.opacity || .52 : through ? settings?.mouseThroughOpacity || 0.48 : settings?.opacity || 1) } },
     !focus && h('aside', { className: 'sidebar' }, h('div', { className: 'brand drag' }, h('img', { src: './assets/logo.svg', alt: '知跃 Logo' }), h('b', null, BRAND.name), h('span', null, '社区版')),
       button('＋ 新会话', () => { if (page === 'interview') { setInterviewSeed(null); setInterviewKey((value) => value + 1); return; } setConversation(fresh(page === 'exam' ? 'written' : 'chat')); setImages([]); setDraft(''); setPage(page === 'exam' ? 'exam' : 'chat'); }, { className: 'new-conversation', disabled: busy || capturing }),
@@ -348,7 +362,7 @@ function App() {
           h('input', { type: 'range', min: .01, max: 1, step: .01, value: opacityPreview ?? (through ? settings?.mouseThroughOpacity || .48 : settings?.opacity || 1), onChange: (e) => patchSettings(through ? { mouseThroughOpacity: Number(e.target.value) } : { opacity: Number(e.target.value) }) })),
         button('隐藏', () => api.window.hide(), { title: `${settings?.hotkeys?.['window:show'] || '托盘'} 解除隐藏`, 'aria-label': '隐藏窗口' }), button(focus ? '退出专注' : '专注窗口', () => toggleFocus()), button('—', () => api.window.minimize(), { 'aria-label': '最小化' }), button('×', () => api.window.close(), { 'aria-label': '关闭窗口' }))),
       notice && h('div', { className: notice.success ? 'notice success' : 'notice', role: notice.success ? 'status' : 'alert' }, h('span', null, notice.text), button('×', () => setNotice(null), { 'aria-label': '关闭提示' })),
-      page === 'interview' ? h(LiveInterview, { key: interviewKey, seed: interviewSeed, settings, models, documents, report, passive: interviewPassive, onStarted: interviewChanged, configure: () => setPage('settings') }) : page === 'chat' || page === 'exam' ? renderChat() : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && !writtenActive && !interviewPassive && h(FocusResizeHandle));
+      page === 'interview' ? h(LiveInterview, { key: interviewKey, seed: interviewSeed, settings, models, documents, report, passive: interviewPassive, onStarted: interviewChanged, configure: () => setPage('settings') }) : page === 'guide' ? h(BeginnerGuide, { models, onConfigure: configureFromGuide, onNavigate: selectPage, report }) : page === 'chat' || page === 'exam' ? renderChat() : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && !writtenActive && !interviewPassive && h(FocusResizeHandle));
 }
 
 const surface = new URLSearchParams(window.location.search).get('surface');

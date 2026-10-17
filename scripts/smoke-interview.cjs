@@ -11,7 +11,7 @@ process.env.ZHIYUE_USER_DATA_DIR = fs.mkdtempSync(path.join(root, '.runtime', 'i
 const errors = [], external = [], network = [], questions = [];
 const shortcuts = new Map(), register = globalShortcut.register.bind(globalShortcut);
 globalShortcut.register = (key, handler) => { const ok = register(key, handler); if (ok) shortcuts.set(key, handler); return ok; };
-let qwenRequests=0, glmRequests=0;
+let qwenRequests=0, glmRequests=0, measuredTiming="", earlyTranscriptionVerified=false;
 let speechRequests = 0, failSpeech = false, holdSpeech = false, heldResponse, baseUrl, holdAnswer = false, heldAnswer;
 shell.openExternal = async (url) => external.push(url);
 const originalFetch = globalThis.fetch;
@@ -38,16 +38,16 @@ const server = http.createServer(async (req, res) => {
       const offset = bytes.indexOf('RIFF'); assert.ok(offset > 0); assert.equal(bytes.readUInt32LE(offset + 24), 16000);
       assert.ok(bytes.includes('mock-speech-model')); assert.ok(bytes.length < 700000);
       if (holdSpeech) { heldResponse = res; return; }
-      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ text: speechRequests === 1 ? '请解释 Redis 缓存击穿。' : '怎样防止缓存雪崩？' })); return;
+      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ text: speechRequests === 1 ? '请解释 Redis 缓存击穿。' : speechRequests === 2 ? '怎样防止' : '缓存雪崩？' })); return;
     }
     assert.equal(req.url, '/v1/chat/completions');
     const body = JSON.parse(bytes.toString());
-    assert.match(body.messages[0].content, /实时面试辅助/);
+    assert.match(body.messages[0].content, /实时面试辅助/);assert.match(body.messages[0].content,/第一人称/);assert.equal(body.max_tokens,640);assert.equal(body.reasoning_effort,'none');
     const user = body.messages.at(-1).content; const text = typeof user === 'string' ? user : user[0].text;
     questions.push(text);
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const delta = (text) => res.write('data: ' + JSON.stringify({ choices: [{ delta: { content: text } }] }) + '\n\n');
-    delta('面试参考回答：'); if (holdAnswer) { heldAnswer = res; return; } setTimeout(() => { delta('使用互斥锁、合理过期与限流。'); res.end('data: [DONE]\n\n'); }, 120);
+    delta('我的理解是，缓存问题要先保护数据库。'); if (holdAnswer) { heldAnswer = res; return; } setTimeout(() => { delta('我会通过预热、合理过期与限流分散压力，针对热点用互斥锁限制回源，再用监控判断是否需要调整，在可用性和数据新鲜度之间做好取舍。'); res.end('data: [DONE]\n\n'); }, 120);
   } catch (error) { errors.push(error.message); res.writeHead(500); res.end('{}'); }
 });
 const waitFor = async (fn, label, timeout = 15000) => {
@@ -58,7 +58,7 @@ const waitFor = async (fn, label, timeout = 15000) => {
 let finished = false;
 function finish(code, detail) {
   if (finished) return; finished = true;
-  fs.writeFileSync(path.join(root, 'artifacts/interview-smoke-report.json'), JSON.stringify({ ok: code === 0, detail, speechRequests, qwenRequests, glmRequests, answerRequests: questions.length, errors, unexpectedNetwork: network, source: 'synthetic AudioContext; microphone never used; speech and model mocked' }, null, 2));
+  fs.writeFileSync(path.join(root, 'artifacts/interview-smoke-report.json'), JSON.stringify({ ok: code === 0, detail, speechRequests, qwenRequests, glmRequests, measuredTiming, earlyTranscriptionVerified, answerRequests: questions.length, errors, unexpectedNetwork: network, source: 'synthetic AudioContext; microphone never used; speech and model mocked' }, null, 2));
   console.log((code ? 'INTERVIEW SMOKE FAIL: ' : 'INTERVIEW SMOKE PASS: ') + detail); server.close(); app.exit(code);
 }
 process.on('uncaughtException', (error) => finish(1, error.stack));
@@ -124,7 +124,7 @@ app.whenReady().then(async () => {
   await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
   fs.writeFileSync(path.join(root,'artifacts/zhiyue-speech-settings.png'),(await main.webContents.capturePage()).toPNG());
   const stored = fs.readFileSync(path.join(process.env.ZHIYUE_USER_DATA_DIR, 'speech-service.json'), 'utf8'); assert.equal(stored.includes('mock-speech-key'), false);
-  await evaluate(`window.api.personalModels.save({slot:'interview',baseUrl:${JSON.stringify(baseUrl + '/v1')},model:'mock-answer-model',apiKey:'mock-answer-key'})`);
+  await evaluate(`window.api.personalModels.save({slot:'interview',providerId:'deepseek',thinkingLevel:'high',baseUrl:${JSON.stringify(baseUrl + '/v1')},model:'mock-answer-model',apiKey:'mock-answer-key'})`);
   // Reload UI model state before entering live interview.
   main.webContents.reload(); await waitFor(() => evaluate('!!document.querySelector("[data-page=interview]")'), 'reload');
   await evaluate('window.api.window.show()');
@@ -160,11 +160,13 @@ app.whenReady().then(async () => {
   shortcuts.get('Control+Q')();
   await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
   assert.equal((await evaluate('window.api.interview.windowStatus()')).active,true,'Screenshot hotkey cannot navigate out of live interview');
-  const pulse = () => evaluate('window.__interviewAudio.gain.gain.value=.12;setTimeout(()=>window.__interviewAudio.gain.gain.value=0,700)');
+  const pulse = (duration=700) => evaluate('window.__interviewAudio.gain.gain.value=.12;setTimeout(()=>window.__interviewAudio.gain.gain.value=0,'+duration+')');
   await pulse(); await waitFor(() => questions.length === 1, 'first automatic answer');
   await waitFor(() => evaluate('document.querySelector(".message.assistant")?.textContent.includes("互斥锁")'), 'streamed answer');
   assert.match(questions[0], /Redis/);
-  await pulse(); await waitFor(() => questions.length === 2, 'second automatic answer');
+  measuredTiming=await evaluate('document.querySelector("[data-interview-timing]").textContent');assert.match(measuredTiming,/回答首字/);
+  await pulse(6600);await waitFor(()=>speechRequests===2,'long speech begins ASR before the question ends');assert.equal(questions.length,1);earlyTranscriptionVerified=true;
+  await waitFor(() => questions.length === 2, 'second automatic answer');
   await waitFor(() => evaluate('window.api.workspace.list().then(rows=>rows.some(row=>row.mode==="interview"&&row.messageCount===4))'), 'interview history');
   fs.writeFileSync(path.join(root, 'artifacts/zhiyue-live-interview.png'), (await main.webContents.capturePage()).toPNG());
   holdSpeech = true; await pulse(); await waitFor(() => heldResponse, 'pending transcription');

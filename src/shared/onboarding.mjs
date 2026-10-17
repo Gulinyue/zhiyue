@@ -1,0 +1,101 @@
+// 知跃 · Developed by gulinyue. Public tutorial constants; never store a user's Key here.
+export const GUIDE_LINKS = Object.freeze({
+  deepseek: 'https://platform.deepseek.com/',
+  deepseekKeys: 'https://platform.deepseek.com/api_keys',
+  deepseekDocs: 'https://api-docs.deepseek.com/zh-cn/',
+  deepseekVision: 'https://api-docs.deepseek.com/guides/vision/',
+  aliyunRegister: 'https://account.aliyun.com/register/qr_register.htm',
+  bailian: 'https://bailian.console.aliyun.com/',
+  bailianKeys: 'https://help.aliyun.com/zh/model-studio/get-api-key',
+  bailianStart: 'https://help.aliyun.com/zh/model-studio/first-api-call-to-qwen',
+});
+export const GUIDE_VALUES = Object.freeze({
+  deepseekBase: 'https://api.deepseek.com/v1', deepseekModel: 'deepseek-flash',
+  speechBase: 'https://dashscope.aliyuncs.com/compatible-mode/v1', speechModel: 'qwen3-asr-flash',
+  trialQuestion: '请用三句话解释什么是缓存，以及它有什么作用。',
+});
+export const GUIDE_EXAMPLES = Object.freeze({
+  interview: { providerId: 'deepseek', baseUrl: GUIDE_VALUES.deepseekBase, apiMode: 'chat-completions', model: GUIDE_VALUES.deepseekModel, thinkingLevel: 'none' },
+  screenshot: { providerId: 'deepseek', baseUrl: GUIDE_VALUES.deepseekBase, apiMode: 'chat-completions', model: GUIDE_VALUES.deepseekModel, thinkingLevel: 'none' },
+  speech: { providerId: 'dashscope', baseUrl: GUIDE_VALUES.speechBase, model: GUIDE_VALUES.speechModel, language: '' },
+});
+export const GUIDE_STEPS = [
+  { id: 'welcome', title: '先认识三个连接', summary: '把模型理解成三个各司其职的帮手。', items: [
+    '文字问答模型负责听懂问题后写回答，本教程使用 DeepSeek。截图分析模型负责看图并解题，本教程也使用 DeepSeek 的 deepseek-flash。语音转写模型只把声音变成文字，使用阿里云国内千问百炼。',
+    '需要注册两个平台账号：DeepSeek 开放平台、阿里云百炼。知跃本身不需要应用账号，也不需要购买云服务器或安装编程工具。',
+    'API Key 是平台发给软件的“通行证”；Base URL 是服务地址；模型 ID 是要使用的具体型号。后面的示例可自动填写地址和型号，只有你的 Key 必须由你复制。',
+    '知跃免费使用，平台 API 按其规则计费。是否有赠送额度、额度期限和价格，以各自控制台为准；先检查余额、额度和用量，不必照教程充值固定金额。',
+    '先记住退出键 Ctrl+Shift+Z：面试或笔试一开始，窗口会半透明且点不动，这是鼠标穿透。按退出键才能回到可点击的设置。快捷键改过时以设置显示为准。',
+  ], check: '我知道三种模型各自负责什么，也知道要准备两个平台的 Key。' },
+  { id: 'deepseek-account', title: '注册并登录 DeepSeek', summary: '在官方开放平台操作，不是在网页版聊天框里找 Key。', links: [['deepseek', '打开 DeepSeek 开放平台'], ['deepseekDocs', '查看官方入门说明']], items: [
+    '点击本页“打开 DeepSeek 开放平台”，系统会用浏览器打开 platform.deepseek.com。保留知跃窗口，浏览器与软件可用 Alt+Tab 来回切换。',
+    '没有账号时，在登录页寻找注册入口，按该页面当前提供的手机号、邮箱或其他方式注册；已有账号直接登录。平台页面可能改版，以官方页面为准。',
+    '如果页面要求手机号：选择正确区号，输入自己的号码，再获取验证码。如果有图形验证先完成它；将收到的验证码填回该页面。若使用邮箱，同样去自己的邮箱收取验证邮件或验证码。',
+    '页面要求设置密码时自行设置并保管；勾选协议前先阅读。登录后应进入 API 平台控制台。如果看到的是聊天对话框，请重新使用本页按钮打开 API 平台。',
+    '在控制台查看余额、用量或充值入口。按自己的需要处理账户可用额度；知跃不能替你注册、认证或付款。操作完成后继续下一步。',
+  ], check: '我已能进入 DeepSeek 的 API 控制台。' },
+  { id: 'deepseek-key', title: '创建并复制 DeepSeek Key', summary: '这把 Key 后面要分别粘贴到文字卡片和截图卡片。', links: [['deepseekKeys', '打开 DeepSeek API Keys']], items: [
+    '在已登录的浏览器中点击“打开 DeepSeek API Keys”；也可以在平台侧栏找 API Keys / API 密钥。',
+    '点击创建 API Key。需要名称时填写“知跃”，方便以后识别；若有权限或模型范围选项，确保允许调用 deepseek-flash。',
+    '创建后点击密钥旁的复制按钮，复制的是完整 Key，不是密钥名称、编号，也不是只有末四位的星号预览。不要给 Key 加引号、空格或换行。',
+    '若平台只在创建时显示完整 Key，请按平台提示妥善保管；之后看不到完整值时，创建新 Key 再更新软件即可。不要把 Key 发到聊天、反馈邮箱、截图或公开仓库。',
+    '复制成功后按 Alt+Tab 返回知跃。普通文字用 Ctrl+C 复制、Ctrl+V 粘贴；输入框填错时先点框内，再按 Ctrl+A 全选后重贴。',
+  ], check: '我已复制自己的完整 DeepSeek API Key。' },
+  { id: 'text', title: '粘贴到文字问答模型', summary: '让 DeepSeek 先回答一道简单文字题。', target: 'interview', copies: [['deepseekBase', '服务地址'], ['deepseekModel', '模型 ID']], items: [
+    '点击“去填写文字示例”。知跃会打开设置并定位“文字问答模型”，预填 DeepSeek、地址、接口协议和型号。不会自动改掉已保存的连接；只有你点测试并保存后才会生效。',
+    '检查模型来源是 DeepSeek，Base URL 是本页示例地址，接口协议是 OpenAI Chat Completions，模型 ID 是 deepseek-flash。可以按本页复制按钮，再在对应输入框 Ctrl+A、Ctrl+V。',
+    '点 API Key 密码框，按 Ctrl+V 粘贴刚从 DeepSeek 复制的完整 Key。框内显示圆点属于正常现象；不要在“模型 ID”框粘贴 Key。',
+    '保留“关闭深度思考，优先速度”勾选，点击这张卡片自己的“测试并保存”，等待出现连接成功。测试会实际发送一条小请求，可能消耗平台额度。',
+    '成功后卡片显示“已配置”，Key 输入框会清空并显示已保存末四位，说明已加密保存，不需要再次输入。若失败，不要急着开始面试，先看错误提示并按最后一页排查。',
+    '左侧打开工作台，输入“请用三句话解释什么是缓存”，点发送。看到连续出现的回答说明文字通路可用；完成后从侧栏返回新手教程继续。',
+  ], check: '文字问答模型已配置，并能在工作台回答问题。' },
+  { id: 'image', title: '配置截图分析模型', summary: '同一个 DeepSeek 平台账号，需要单独保存第二张卡片。', target: 'screenshot', copies: [['deepseekBase', '服务地址'], ['deepseekModel', '支持图片的型号']], links: [['deepseekVision', '查看 DeepSeek 图片支持说明']], items: [
+    '先回到浏览器的 DeepSeek API Keys 页面，再次复制同一把完整 Key。文字卡片里已经保存的 Key 不会被软件明文显示或自动复制。若原值不可再查看，可在平台新建另一把。',
+    '点击“去填写截图示例”，定位“截图分析模型”。来源、地址和协议与文字卡片一样；本教程使用 deepseek-flash，它按当前官方文档支持图片输入。不要随意把纯文字型号填到这里。',
+    '点这张截图卡片的 API Key 框，Ctrl+V 粘贴 DeepSeek Key。两张模型卡片各自保存，文字卡片成功不代表截图卡片已经配置。',
+    '点击截图卡片自己的“测试并保存”。本次会发送一张软件生成的测试图片，并非你的屏幕；成功后也会显示“已配置”。',
+    '第一次实际截图前，打开一张不含私人信息的练习题。在“笔试定制”确认退出快捷键，再点击“开始笔试”。窗口变得点不动后按 Ctrl+Q 截图，软件会将选定显示器的画面发给截图模型。',
+    '看到解答后按 Ctrl+Shift+Z 退出。多显示器用户先在设置选择题目所在屏幕；长题可用 Ctrl+Shift+Q 滚动截图。截图会发送到你选定的平台，请只截这次需要处理的内容。',
+  ], check: '截图分析模型测试成功，我能截图出答案并用退出键返回。' },
+  { id: 'aliyun-account', title: '注册阿里云并开通百炼', summary: '只开通模型服务，无需购买服务器。', links: [['aliyunRegister', '打开阿里云注册'], ['bailian', '打开百炼控制台'], ['bailianStart', '查看百炼开通说明']], items: [
+    '没有阿里云账号时点击“打开阿里云注册”。按官方页面要求输入自己的手机号码、获取并填写验证码，完成密码、协议等注册步骤；已有账号直接登录。短信、密码和实名信息只填写在官方页面。',
+    '登录后点击“打开百炼控制台”。首次进入如出现百炼服务协议，阅读并同意后开通；没有弹窗可能说明已经开通。',
+    '如果官方页面提示需要实名认证，在阿里云账号中心按个人或企业的实际身份完成认证，再回到百炼刷新。知跃不收集身份证或验证码。',
+    '在百炼控制台顶部找到地域选择，选择中国内地“华北2（北京）”。本教程后面所有语音步骤都用北京，不混用新加坡或其他地域。',
+    '查看模型服务的额度、用量和账户状态，确认 qwen3-asr-flash 有可用权限。若需购买或充值，先阅读平台计费说明，按实际需要自行决定；无需购买 ECS、域名或大模型训练服务。',
+  ], check: '我已进入百炼控制台，并选好华北2（北京）。' },
+  { id: 'aliyun-key', title: '复制百炼北京地域的 Key', summary: '这把 Key 与 DeepSeek Key 不通用。', links: [['bailian', '打开百炼控制台'], ['bailianKeys', '查看 API Key 创建位置']], items: [
+    '确认控制台地域仍是华北2（北京），找到“API Key / API 密钥”管理入口。页面改版找不到入口时，点击本页官方说明中的 API Key 页面链接。',
+    '点击创建 API Key。个人入门通常选择自己的主账号与默认业务空间；若你使用自定义权限，确保可访问 qwen3-asr-flash。完成平台要求的确认后创建。',
+    '点击完整 Key 旁的复制图标。如果只看到密钥名称或星号，使用平台提供的复制操作；不要复制 Workspace ID 当成 Key。',
+    '如果控制台给了业务空间专属 Base URL，一并记下控制台展示的地址。北京的兼容地址应以 /compatible-mode/v1 结尾，不是 Token Plan / Coding Plan 专用地址。',
+    '按 Alt+Tab 回知跃。后面语音卡片只粘贴这把百炼 Key；文字和截图卡片仍用 DeepSeek Key。',
+  ], check: '我已复制百炼北京地域的完整 Key，知道它只用于语音卡片。' },
+  { id: 'speech', title: '粘贴到语音转写服务', summary: '让百炼负责听写，再交给 DeepSeek 写回答。', target: 'speech', copies: [['speechBase', '北京默认服务地址'], ['speechModel', '语音模型 ID']], items: [
+    '点击“去填写语音示例”，知跃会定位设置里的“实时面试 · 语音转写”，预选千问百炼 · 中国内地（北京）和 qwen3-asr-flash。',
+    '默认地址可直接使用；如果你的控制台提供业务空间专属地址，先在 Base URL 框 Ctrl+A、Ctrl+V 填入控制台地址，再粘贴 Key。改地址会清空尚未保存的 Key，避免把 Key 发错平台。',
+    '点语音 API Key 框，Ctrl+V 粘贴百炼北京的完整 Key；不要粘贴 DeepSeek Key。模型 ID 保持 qwen3-asr-flash，不要选需要异步文件任务的 Filetrans 型号。',
+    '识别语言先选“自动识别”，便于中文夹英文术语。识别热词可选填“Redis、Spring Boot、Kubernetes”等技术名词，不填也能使用。',
+    '点语音卡片的“测试并保存”。测试发送 0.5 秒合成音，不访问你的麦克风或系统声音，可能消耗平台额度。成功说明接口可连接，不代表已经验证真实语音准确率。',
+    '成功后看到“已配置”和 Key 末四位即可。现在三种连接都已齐全；回到本教程下一步，先用一段测试声音验证完整链路。',
+  ], check: '语音服务测试成功，三种连接都已配置。' },
+  { id: 'live', title: '第一次使用实时面试', summary: '先用练习音频，确认转写和口述稿都能出现。', copies: [['trialQuestion', '可用于测试的提问']], items: [
+    '在设置的“面试定制”点击“应用快速口述推荐”，会选好口述稿、快速模式、0.7 秒停顿和自动回答；若总是把半句话截断，调大到 1.0～1.3 秒。快捷键提示栏建议首次使用时开启。',
+    '准备一段电脑会播放出来的练习提问：可以是你录好的测试音频、教学视频片段，或由另一台设备经会议软件发送的声音。仅在电脑面前对着麦克风说话不会被收录，因为知跃只录系统播放声音。',
+    '先让电脑处于准备播放的状态，然后点击侧栏“实时面试”或设置中的“开始面试”。不用再点第二个开始按钮；窗口会半透明、鼠标穿透，下面的播放器仍可点击。',
+    '播放一句完整提问，例如本页测试问题。说完后稍作停顿，先看问题转写，再看口述稿逐字出现。口述稿默认以应聘者第一人称表达，不再输出网页版常见的长篇教程。',
+    '悬浮窗显示最近一片的转写耗时，以及模型开始回答后的首字耗时；首字不包含转写、停顿或前面排队时间。网络和平台繁忙会影响速度，没有固定秒数保证。',
+    'Ctrl+Shift+Z 或 Ctrl+3 结束收音并回到设置。隐藏窗口不会停止收音；Ctrl+Shift+H 隐藏，Ctrl+Shift+E 恢复，恢复后仍然点不动，必须退出才能操作设置。',
+    '如需参考自己的资料，先在“本机知识库”添加真实简历或项目描述，再在面试定制勾选知识库。口述稿应结合你实际掌握的内容使用，不会凭空编造项目经历。',
+  ], check: '我已用系统播放的声音完成一次提问、转写、回答和退出。' },
+  { id: 'troubleshooting', title: '遇到问题时逐项检查', summary: '先看是哪一张卡片报错，再对应排查。', items: [
+    '提示鉴权失败 / 401 / 403：先核对平台。DeepSeek Key 填文字与截图，百炼北京 Key 填语音。回官网复制完整 Key，在正确框 Ctrl+A、Ctrl+V 重贴；再查 Key 是否删除、权限是否开通、北京地域是否选对。',
+    '提示额度不足 / 429：去对应平台看余额、赠送额度到期和并发限制。软件免费不代表平台 API 免费；检查清楚后再决定是否充值或等待。',
+    '提示模型不存在 / 图片不支持：检查型号拼写。文字与截图示例是 deepseek-flash，语音是 qwen3-asr-flash。DeepSeek 更新型号时以官方模型列表及图片文档为准，不能只看网页版是否能上传图片。',
+    '语音连接测试通过但没有转写：确认电脑真的在播放声音、音量不是静音且默认播放设备正常。先用本地播放器播一句话；麦克风说话、耳机外的人声不会直接进入系统回环收音。',
+    '转写经常断句或识别错词：增大停顿、添加技术热词、选择自动识别，尽量去掉背景音乐。过于灵敏会收进杂音，太不灵敏会漏掉轻声，可小幅调整收音灵敏度。',
+    '回答慢：看转写与首字耗时，分别检查百炼和 DeepSeek 的网络、用量及服务状态；选择快速模式，关闭 DeepSeek 深度思考，减少过长资料和同时运行的请求。长问题会提前分片，但不会在提问尚未结束时猜答案。',
+    '窗口点不动 / 找不到：先按 Ctrl+Shift+E 恢复显示，再按 Ctrl+Shift+Z 退出。若退出键提示未注册，在设置修改为不冲突组合后再进入；系统托盘也有窗口入口。',
+    '需要反馈 Bug：设置顶部可打开反馈邮箱。描述软件版本、出问题的卡片和操作步骤，发错误文字即可；截图前遮住完整 Key、账号和个人资料。',
+  ], check: '我知道如何排查常见问题，之后也可以随时从侧栏重新打开本教程。' },
+];

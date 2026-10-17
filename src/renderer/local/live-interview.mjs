@@ -18,6 +18,7 @@ export function LiveInterview({ settings, models, documents, seed, report, confi
   const [queued, setQueued] = React.useState(0);
   const [level, setLevel] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
+  const [timing, setTiming] = React.useState({});
   const alive = React.useRef(true), epoch = React.useRef(0), recording = React.useRef(null), active = React.useRef(null), queue = React.useRef([]), current = React.useRef(conversation), latest = React.useRef({}), actions = React.useRef({}), thread = React.useRef(null), follow = React.useRef(true);
   const options = normalizeInterviewOptions(settings?.interviewOptions);
   latest.current = { models, documents, options, report };
@@ -46,12 +47,17 @@ export function LiveInterview({ settings, models, documents, seed, report, confi
       const previous = current.current;
       const reply = { id: uid(), role: 'assistant', text: '', status: 'completed' };
       const next = { ...previous, title: previous.title || question.slice(0, 45), updatedAt: Date.now(), messages: [...previous.messages, { id: uid(), role: 'user', text: question, status: 'completed' }, reply] };
-      const run = { id: `interview-${uid()}`, text: '', cancelled: false }; active.current = run;
+      const run = { id: `interview-${uid()}`, text: '', cancelled: false, startedAt: performance.now() }; active.current = run;
+      setTiming(value => ({ ...value, firstMs: null }));
       update(next); follow.current = true; setBusy(true);
-      const request = buildLocalRequest({ question, mode: 'interview', history: previous.messages, documents: opts.useKnowledge ? docs : [], prompt: `回答语言：${opts.answerLanguage}。\n${opts.prompt}` });
+      const request = buildLocalRequest({ question, mode: 'interview', history: previous.messages, documents: opts.useKnowledge ? docs : [], interviewOptions: opts, prompt: `回答语言：${opts.answerLanguage}。\n${opts.prompt}` });
+      if (opts.speedMode === 'fast' && modelState.profiles.find(profile => profile.slot === slot)?.providerId === 'deepseek') request.thinkingLevel = 'none';
       let flushTimer;
       const flush = () => { flushTimer = undefined; if (alive.current && active.current === run) update({ ...next, messages: [...next.messages.slice(0, -1), { ...reply, text: run.text }] }); };
-      const unsubscribe = api.personalModels.onStreamEvent(({ requestId, event }) => { if (requestId === run.id && active.current === run && !run.cancelled && event.type === 'delta') { run.text += event.delta; if (!flushTimer) flushTimer = setTimeout(flush, 40); } });
+      const unsubscribe = api.personalModels.onStreamEvent(({ requestId, event }) => { if (requestId === run.id && active.current === run && !run.cancelled && event.type === 'delta') {
+        if (!run.text && event.delta && alive.current) setTiming(value => ({ ...value, firstMs: Math.round(performance.now() - run.startedAt) }));
+        const first = !run.text; run.text += event.delta; if (!flushTimer) flushTimer = setTimeout(flush, first ? 0 : 30);
+      } });
       let status = 'completed';
       try {
         const result = await api.personalModels.run({ requestId: run.id, taskKind: 'interview', slot, request });
@@ -83,7 +89,7 @@ export function LiveInterview({ settings, models, documents, seed, report, confi
       if (!alive.current || epoch.current !== generation) { void api.interview.stop(sessionId); return; }
       let sequence = 0;
       const pipeline = new TranscriptionQueue({
-        transcribe: async (audio) => (await api.interview.transcribe({ sessionId, sequence: sequence++, audio })).text,
+        transcribe: async (audio) => { const startedAt = performance.now(); const result = await api.interview.transcribe({ sessionId, sequence: sequence++, audio }); if (alive.current && epoch.current === generation) setTiming(value => ({ ...value, asrMs: Math.round(performance.now() - startedAt) })); return result.text; },
         onPending: (count) => { if (alive.current && epoch.current === generation) setPending(count); },
         onText: (text, final) => { if (!alive.current || epoch.current !== generation) return; setDraft(text); if (final && text.trim() && latest.current.options.autoAnswer) answer(text); },
         onError: (error) => { if (alive.current && epoch.current === generation) { stopAudio(); latest.current.report(error.message); } },
@@ -122,7 +128,8 @@ export function LiveInterview({ settings, models, documents, seed, report, confi
   }, []);
   React.useEffect(() => { if (follow.current) thread.current?.scrollTo({ top: thread.current.scrollHeight, behavior: 'auto' }); }, [conversation.messages]);
   return h('div', { className: 'chat-layout live-interview', 'data-live-interview': true, 'data-listening': listening },
-    passive && options.showShortcutHints && h('div', { className: 'written-passive-banner' }, h('span', null, pending ? '面试中 · 正在转写' : '面试中 · 仅系统声音 · 鼠标穿透'), h('kbd', null, `${settings?.hotkeys?.['exam:exit'] || 'Ctrl+Shift+Z'} 退出`), !options.autoAnswer && h('kbd', null, `${settings?.hotkeys?.['llm:resendHistory'] || 'Alt+C'} 回答当前问题`)),
+    passive && options.showShortcutHints && h('div', { className: 'written-passive-banner' }, h('span', null, pending ? '面试中 · 正在转写' : busy ? '面试中 · 正在生成口述稿' : '面试中 · 仅系统声音 · 鼠标穿透'), h('kbd', null, `${settings?.hotkeys?.['exam:exit'] || 'Ctrl+Shift+Z'} 退出`), !options.autoAnswer && h('kbd', null, `${settings?.hotkeys?.['llm:resendHistory'] || 'Alt+C'} 回答当前问题`)),
+    passive && (timing.asrMs !== undefined || timing.firstMs != null) && h('div', { className: 'interview-timing', 'data-interview-timing': true }, [timing.asrMs !== undefined ? `最近一片转写 ${(timing.asrMs / 1000).toFixed(2)} 秒` : '', timing.firstMs != null ? `回答首字 ${(timing.firstMs / 1000).toFixed(2)} 秒` : '', queued ? `${queued} 个问题等待回答` : ''].filter(Boolean).join(' · ')),
     !passive && h('div', { className: 'interview-toolbar no-drag' },
       h('div', null, h('strong', null, '实时面试'), h('p', null, listening ? pending ? '正在转写系统声音…' : '正在聆听面试官 · 仅系统声音' : starting ? '正在连接系统收音…' : '系统收音 → 分句转写 → 自动生成回答')),
       h('div', { className: 'row wrap' }, h('span', { className: listening ? 'listening-dot active' : 'listening-dot', 'aria-label': listening ? '收音中' : '未收音' }), h('meter', { min: 0, max: 1, value: level, 'aria-label': '系统声音电平' }),
@@ -130,7 +137,7 @@ export function LiveInterview({ settings, models, documents, seed, report, confi
         h('button', { type: 'button', onClick: configure }, '语音与回答设置'))),
     h('div', { className: 'chat-thread', ref: thread, onScroll: () => { const el = thread.current; if (el) follow.current = el.scrollHeight - el.clientHeight - el.scrollTop < 32; } },
       !conversation.messages.length && h('div', { className: 'interview-welcome written-welcome' }, h('img', { src: './assets/logo.svg', alt: BRAND.name, className: 'written-logo' }), h('h1', null, listening ? '正在聆听面试官' : '正在准备系统收音…'), h('p', null, '面试官说完后，问题转写和参考回答会出现在这里。'), options.showShortcutHints && h('p', { className: 'muted small' }, `${settings?.hotkeys?.['exam:exit'] || 'Ctrl+Shift+Z'} 退出并恢复设置 · 不使用麦克风`)),
-      ...conversation.messages.map((message) => h('article', { className: `message ${message.role}`, key: message.id }, h('div', { className: 'message-label' }, message.role === 'user' ? '面试官问题' : '参考回答', message.status !== 'completed' && h('span', null, message.status === 'cancelled' ? ' · 已停止' : ' · 未完成')), h(MarkdownBody, { markdown: message.text || '正在组织回答…' })))),
+      ...(passive ? conversation.messages.slice(-2) : conversation.messages).map((message) => h('article', { className: `message ${message.role}`, key: message.id }, h('div', { className: 'message-label' }, message.role === 'user' ? '当前问题' : options.responseStyle === 'spoken' ? '口述稿' : '回答提纲', message.status !== 'completed' && h('span', null, message.status === 'cancelled' ? ' · 已停止' : ' · 未完成')), h(MarkdownBody, { markdown: message.text || '正在组织回答…' })))),
     passive && draft && h('div', { className: 'interview-transcript' }, h('span', null, options.autoAnswer ? '问题转写' : `问题转写 · ${settings?.hotkeys?.['llm:resendHistory'] || 'Alt+C'} 生成回答`), h('p', null, draft)),
     !passive && h('div', { className: 'composer-wrap' }, h('form', { className: 'composer', onSubmit: (event) => { event.preventDefault(); answer(draft); } },
       h('textarea', { value: draft, maxLength: 12000, rows: 2, 'aria-label': '面试问题转写', onChange: (e) => setDraft(e.target.value), placeholder: '语音转写将出现在这里，也可以手动修正问题再回答…' }),

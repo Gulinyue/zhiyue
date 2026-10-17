@@ -13,7 +13,7 @@ export class SystemAudioCapture {
     if (context.sampleRate !== 16000) throw new Error('当前音频设备不支持 16 kHz 收音。');
     await context.audioWorklet.addModule(new URL('./assets/interview-worklet.js', window.location.href));
     if (this.stopped) return false;
-    const segmenter = this.segmenter = new VoiceSegmenter(this.options);
+    const segmenter = this.segmenter = new VoiceSegmenter({ ...this.options, maxSegmentMs: this.options.speedMode === 'fast' ? 6000 : 20000 });
     const source = this.source = context.createMediaStreamSource(new MediaStream(tracks));
     const worklet = this.worklet = new AudioWorkletNode(context, 'zhiyue-interview-audio');
     worklet.port.onmessage = ({ data }) => { if (!this.stopped) segmenter.push(data); };

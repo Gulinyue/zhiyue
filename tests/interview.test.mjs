@@ -66,7 +66,7 @@ test('speech errors do not expose upstream keys and abort is bounded', async () 
 });
 test('live interview prompts answer the question rather than simulate an interviewer', () => {
   const result = buildLocalRequest({ question: '如何做缓存？', mode: 'interview', documents: [], prompt: '回答语言：中文' });
-  assert.match(result.messages[0].content, /可以口述/); assert.match(result.messages[0].content, /不编造用户经历/); assert.doesNotMatch(result.messages[0].content, /每次只提出一个问题/);
+  assert.match(result.messages[0].content, /可以直接口述/); assert.match(result.messages[0].content, /不编造个人经历/); assert.doesNotMatch(result.messages[0].content, /每次只提出一个问题/);
 });
 import { SPEECH_PROVIDERS, inferSpeechProvider, isSpeechModel, speechModelChoices } from '../src/shared/speech-providers.mjs';
 test('speech presets migrate old profiles and keep recognition candidates separate from chat models', () => {
@@ -122,4 +122,22 @@ test('domestic discovery excludes asynchronous Qwen models and recognizes worksp
   assert.equal(isSpeechModel('qwen3-asr-flash', 'dashscope'), true); assert.equal(isSpeechModel('qwen3-asr-flash-2025-09-08', 'dashscope'), true);
   for (const model of ['qwen3-asr-flash-filetrans', 'qwen3-asr-flash-realtime', 'qwen-plus', 'whisper-1']) assert.equal(isSpeechModel(model, 'dashscope'), false);
   assert.equal(isSpeechModel('glm-asr-2512', 'zhipu'), true); assert.equal(isSpeechModel('glm-5', 'zhipu'), false);
+});
+
+test('fast interview preserves the latest question with bounded history and concise spoken instructions', () => {
+  const history = Array.from({ length: 30 }, (_, index) => ({ role: index % 2 ? 'assistant' : 'user', text: String(index) + 'x'.repeat(5000), status: 'completed' }));
+  const result = buildLocalRequest({ question: '追问的问题', mode: 'interview', history });
+  assert.equal(result.maxTokens, 640); assert.equal(result.messages.length, 8); assert.ok(result.messages.slice(1, -1).every(message => message.content.length <= 1500));
+  assert.equal(result.messages.at(-1).content[0].text, '追问的问题');
+  assert.match(result.messages[0].content, /第一人称/); assert.match(result.messages[0].content, /不要前言、标题/); assert.match(result.messages[0].content, /如果由我来做/);
+  const outline = buildLocalRequest({ question: '同样问题', mode: 'interview', history, interviewOptions: { responseStyle: 'outline', speedMode: 'balanced' } });
+  assert.equal(outline.maxTokens, 1200); assert.equal(outline.messages.length, 32); assert.match(outline.messages[0].content, /最多三个关键要点/);
+});
+test('fast voice segmentation transcribes long questions early and trims only trailing silence', () => {
+  const segments = [], gate = new VoiceSegmenter({ onSegment: value => segments.push(value), silenceMs: 700, maxSegmentMs: 6000 });
+  for (let i = 0; i < 60; i++) gate.push(frame(.1));
+  assert.equal(segments.length, 1); assert.equal(segments[0].final, false); assert.equal(segments[0].audio.byteLength, 192000);
+  for (let i = 0; i < 8; i++) gate.push(frame(.2));for (let i = 0; i < 7; i++) gate.push(frame());
+  assert.equal(segments.length, 2); assert.equal(segments[1].final, true); assert.equal(segments[1].audio.byteLength, 30400);
+  const pcm = new DataView(segments[1].audio.buffer); assert.ok(pcm.getInt16(0, true) > 6000); assert.equal(pcm.getInt16(segments[1].audio.byteLength - 2, true), 0);
 });
