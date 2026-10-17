@@ -6,6 +6,8 @@
 
 ![知跃 Logo](resources/logo.svg)
 
+> **喜欢知跃？欢迎支持开发者！** 如果你觉得这个项目不错，可以到 [爱发电为 gulinyue 赞助一杯咖啡 ☕](https://afdian.com/a/gulinyue618)，支持后续开发与维护。赞助完全自愿，不影响免费使用。
+
 ## 安装
 
 Windows 10 2004 或更新版本 / Windows 11，64 位系统。
