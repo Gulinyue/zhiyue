@@ -1,0 +1,324 @@
+{
+  "src/main/bootstrap.cjs": {
+    "lines": 13,
+    "imports": []
+  },
+  "src/main/capture/constants.mjs": {
+    "lines": 19,
+    "imports": []
+  },
+  "src/main/capture/scheduler.mjs": {
+    "lines": 215,
+    "imports": [
+      "./constants.mjs"
+    ]
+  },
+  "src/main/capture/scrolling.mjs": {
+    "lines": 252,
+    "imports": [
+      "./constants.mjs"
+    ]
+  },
+  "src/main/capture/source-selection.mjs": {
+    "lines": 31,
+    "imports": []
+  },
+  "src/main/hotkeys/gestures.mjs": {
+    "lines": 375,
+    "imports": [
+      "node:perf_hooks"
+    ]
+  },
+  "src/main/hotkeys/modes.mjs": {
+    "lines": 86,
+    "imports": []
+  },
+  "src/main/index.mjs": {
+    "lines": 3256,
+    "imports": [
+      "../shared/channels.mjs",
+      "./security/external-url.mjs",
+      "./ipc/gateway.mjs",
+      "electron",
+      "node:path",
+      "./security/display-affinity.mjs",
+      "./security/mac-protection.mjs",
+      "./store/settings.mjs",
+      "./windows/position.mjs",
+      "./windows/profiles.mjs",
+      "./windows/initial-reveal.mjs",
+      "./windows/geometry.mjs",
+      "./store/default-settings.mjs",
+      "./store/knowledge-library.mjs",
+      "./capture/scheduler.mjs",
+      "./capture/constants.mjs",
+      "./capture/source-selection.mjs",
+      "./capture/scrolling.mjs",
+      "./hotkeys/gestures.mjs",
+      "./hotkeys/modes.mjs",
+      "./store/auth.mjs",
+      "./store/local-records.mjs",
+      "./models/credentials.mjs",
+      "./models/validation.mjs",
+      "./models/adapters.mjs",
+      "./updater/download.mjs",
+      "./models/transport.mjs"
+    ]
+  },
+  "src/main/ipc/gateway.mjs": {
+    "lines": 24,
+    "imports": []
+  },
+  "src/main/models/adapters.mjs": {
+    "lines": 669,
+    "imports": [
+      "./validation.mjs",
+      "./transport.mjs"
+    ]
+  },
+  "src/main/models/credentials.mjs": {
+    "lines": 351,
+    "imports": [
+      "./validation.mjs",
+      "electron-store",
+      "electron"
+    ]
+  },
+  "src/main/models/transport.mjs": {
+    "lines": 363,
+    "imports": []
+  },
+  "src/main/models/validation.mjs": {
+    "lines": 330,
+    "imports": []
+  },
+  "src/main/security/display-affinity.mjs": {
+    "lines": 126,
+    "imports": []
+  },
+  "src/main/security/external-url.mjs": {
+    "lines": 13,
+    "imports": []
+  },
+  "src/main/security/mac-protection.mjs": {
+    "lines": 47,
+    "imports": []
+  },
+  "src/main/security/token-codec.mjs": {
+    "lines": 17,
+    "imports": []
+  },
+  "src/main/store/auth.mjs": {
+    "lines": 77,
+    "imports": [
+      "electron-store",
+      "electron",
+      "node:crypto",
+      "../security/token-codec.mjs"
+    ]
+  },
+  "src/main/store/default-settings.mjs": {
+    "lines": 280,
+    "imports": []
+  },
+  "src/main/store/knowledge-library.mjs": {
+    "lines": 144,
+    "imports": [
+      "node:fs/promises",
+      "node:crypto",
+      "node:path"
+    ]
+  },
+  "src/main/store/local-records.mjs": {
+    "lines": 675,
+    "imports": [
+      "node:fs",
+      "node:crypto",
+      "node:path",
+      "node:fs/promises",
+      "node:readline"
+    ]
+  },
+  "src/main/store/settings.mjs": {
+    "lines": 58,
+    "imports": [
+      "electron-store",
+      "./default-settings.mjs",
+      "./auth.mjs"
+    ]
+  },
+  "src/main/updater/download.mjs": {
+    "lines": 158,
+    "imports": [
+      "node:fs/promises",
+      "electron",
+      "node:path",
+      "node:fs",
+      "node:https",
+      "node:http",
+      "node:stream/promises",
+      "./integrity.mjs",
+      "../../shared/trusted-updates.json"
+    ]
+  },
+  "src/main/updater/integrity.mjs": {
+    "lines": 19,
+    "imports": [
+      "node:crypto",
+      "node:fs"
+    ]
+  },
+  "src/main/windows/geometry.mjs": {
+    "lines": 61,
+    "imports": []
+  },
+  "src/main/windows/initial-reveal.mjs": {
+    "lines": 40,
+    "imports": []
+  },
+  "src/main/windows/position.mjs": {
+    "lines": 40,
+    "imports": []
+  },
+  "src/main/windows/profiles.mjs": {
+    "lines": 30,
+    "imports": []
+  },
+  "src/preload/index.cjs": {
+    "lines": 144,
+    "imports": []
+  },
+  "src/renderer/app.mjs": {
+    "lines": 1824,
+    "imports": [
+      "./services/gateway.mjs",
+      "./services/task-runtime.mjs",
+      "./stores/settings.mjs",
+      "./vendor/react-icons-state.mjs",
+      "./stores/session.mjs",
+      "./stores/auth.mjs",
+      "./features/auth.mjs",
+      "./features/workspace.mjs",
+      "./components/key-combo.mjs"
+    ]
+  },
+  "src/renderer/components/key-combo.mjs": {
+    "lines": 11,
+    "imports": [
+      "../vendor/react-icons-state.mjs"
+    ]
+  },
+  "src/renderer/features/auth.mjs": {
+    "lines": 746,
+    "imports": [
+      "../vendor/react-icons-state.mjs",
+      "../services/gateway.mjs",
+      "../stores/auth.mjs"
+    ]
+  },
+  "src/renderer/features/conversation.mjs": {
+    "lines": 540,
+    "imports": [
+      "../vendor/react-icons-state.mjs",
+      "../vendor/markdown.mjs",
+      "../stores/session.mjs"
+    ]
+  },
+  "src/renderer/features/local-records.mjs": {
+    "lines": 1361,
+    "imports": [
+      "../vendor/react-icons-state.mjs",
+      "../stores/settings.mjs",
+      "../components/key-combo.mjs",
+      "../services/task-runtime.mjs"
+    ]
+  },
+  "src/renderer/features/practice.mjs": {
+    "lines": 4374,
+    "imports": [
+      "../services/task-runtime.mjs",
+      "../vendor/react-icons-state.mjs"
+    ]
+  },
+  "src/renderer/features/settings.mjs": {
+    "lines": 435,
+    "imports": [
+      "../stores/session.mjs",
+      "../vendor/react-icons-state.mjs",
+      "../stores/settings.mjs",
+      "../components/key-combo.mjs",
+      "../stores/auth.mjs"
+    ]
+  },
+  "src/renderer/features/workspace.mjs": {
+    "lines": 3678,
+    "imports": [
+      "../services/gateway.mjs",
+      "../services/task-runtime.mjs",
+      "./conversation.mjs",
+      "../stores/settings.mjs",
+      "../stores/auth.mjs",
+      "../stores/session.mjs",
+      "../vendor/react-icons-state.mjs",
+      "./local-records.mjs",
+      "./practice.mjs",
+      "./settings.mjs",
+      "./auth.mjs",
+      "../components/key-combo.mjs",
+      "../vendor/markdown.mjs"
+    ]
+  },
+  "src/renderer/services/gateway.mjs": {
+    "lines": 472,
+    "imports": []
+  },
+  "src/renderer/services/task-runtime.mjs": {
+    "lines": 11011,
+    "imports": [
+      "../vendor/react-icons-state.mjs",
+      "../stores/session.mjs",
+      "./gateway.mjs",
+      "../stores/auth.mjs",
+      "../stores/settings.mjs",
+      "../vendor/qrcode.mjs",
+      "../vendor/markdown.mjs"
+    ]
+  },
+  "src/renderer/stores/auth.mjs": {
+    "lines": 232,
+    "imports": [
+      "../vendor/react-icons-state.mjs",
+      "../services/gateway.mjs"
+    ]
+  },
+  "src/renderer/stores/session.mjs": {
+    "lines": 653,
+    "imports": [
+      "../vendor/react-icons-state.mjs"
+    ]
+  },
+  "src/renderer/stores/settings.mjs": {
+    "lines": 214,
+    "imports": [
+      "../vendor/react-icons-state.mjs"
+    ]
+  },
+  "src/renderer/vendor/markdown.mjs": {
+    "lines": 43518,
+    "imports": [
+      "./react-icons-state.mjs"
+    ]
+  },
+  "src/renderer/vendor/qrcode.mjs": {
+    "lines": 1955,
+    "imports": []
+  },
+  "src/renderer/vendor/react-icons-state.mjs": {
+    "lines": 8100,
+    "imports": []
+  },
+  "src/shared/channels.mjs": {
+    "lines": 95,
+    "imports": []
+  }
+}
