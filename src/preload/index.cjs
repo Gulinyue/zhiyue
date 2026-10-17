@@ -107,6 +107,7 @@ const api = {
     status: (prospectiveMode) => electron.ipcRenderer.invoke(IPC.hotkeyStatus, prospectiveMode)
   },
   app: {
+    openSupport: () => electron.ipcRenderer.invoke(IPC.appOpenSupport),
     quit: () => electron.ipcRenderer.invoke(IPC.appQuit),
     downloadUpdate: (downloadUrl) => electron.ipcRenderer.invoke(IPC.appDownloadUpdate, { downloadUrl }),
     onUpdateDownloadProgress: (cb) => subscribe(IPC.appUpdateDownloadProgress, cb)

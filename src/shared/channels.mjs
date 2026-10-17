@@ -72,6 +72,7 @@ const IPC = {
   localRecordsOpenScreenshot: "local-records:open-screenshot",
   localRecordsDelete: "local-records:delete",
   appQuit: "app:quit",
+  appOpenSupport: 'app:openSupport',
   appDownloadUpdate: "app:updateDownload",
   appUpdateDownloadProgress: "app:updateDownloadProgress",
   authGetTokens: "auth:getTokens",

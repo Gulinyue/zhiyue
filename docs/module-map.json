@@ -34,7 +34,7 @@
     "imports": []
   },
   "src/main/index.mjs": {
-    "lines": 3313,
+    "lines": 3314,
     "imports": [
       "./store/workspace.mjs",
       "./models/local-request.mjs",
@@ -247,7 +247,7 @@
     "imports": []
   },
   "src/preload/index.cjs": {
-    "lines": 166,
+    "lines": 167,
     "imports": []
   },
   "src/renderer/app.mjs": {
@@ -331,7 +331,7 @@
     ]
   },
   "src/renderer/local/app.mjs": {
-    "lines": 322,
+    "lines": 325,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../vendor/markdown.mjs",
@@ -432,13 +432,13 @@
     "imports": []
   },
   "src/shared/brand.mjs": {
-    "lines": 16,
+    "lines": 17,
     "imports": [
       "../../package.json"
     ]
   },
   "src/shared/channels.mjs": {
-    "lines": 98,
+    "lines": 99,
     "imports": []
   },
   "src/shared/conversation-modes.mjs": {

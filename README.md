@@ -12,9 +12,11 @@
 
 Windows 10 2004 或更新版本 / Windows 11，64 位系统。
 
-从 [Releases](https://github.com/Gulinyue/zhiyue/releases) 下载 `Zhiyue-Setup-1.0.0-x64.exe`，双击后按中文向导选择安装位置。安装程序为当前用户安装，创建桌面与开始菜单快捷方式，无需另装 Node.js。安装包尚未购买代码签名证书，Windows 可能显示未知发布者。
+从 [Releases](https://github.com/Gulinyue/zhiyue/releases) 下载最新版 `Zhiyue-Setup-1.0.1-x64.exe`，双击后按中文向导选择安装位置。安装程序为当前用户安装，创建桌面与开始菜单快捷方式，无需另装 Node.js。安装包尚未购买代码签名证书，Windows 可能显示未知发布者。
 
 首次运行需要配置自己的模型连接。发行版使用系统用户数据目录保存设置，不预置开发者的账号、密钥、资料或会话。卸载默认保留用户数据。
+
+软件“连接与设置”底部的关于区域也提供“爱发电支持开发者”入口，点击后由默认浏览器打开赞助页。
 
 ## 笔试模式
 
