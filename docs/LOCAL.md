@@ -29,7 +29,7 @@
 
 ## 验证
 
-57 项测试及三组真实 Electron 冒烟测试覆盖模型协议、OAuth、存储、截图调度、笔试截图直答、历史重开、窗口快捷键、不透明度像素、拖动缩放及实时面试音频到回答的链路。外部服务与截图图像使用模拟数据，音频由本机合成，不登录用户真实账号。详见 MODELS-WINDOW.md 和 INTERVIEW.md。
+61 项测试及三组真实 Electron 冒烟测试覆盖模型协议、OAuth、存储、截图调度、笔试截图直答、历史重开、窗口快捷键、不透明度像素、拖动缩放及实时面试音频到回答的链路。外部服务与截图图像使用模拟数据，音频由本机合成，不登录用户真实账号。详见 MODELS-WINDOW.md 和 INTERVIEW.md。
 
 
 笔试定制保存于 config.json 的 writtenOptions，包含 opacity、codingLanguage、answerLanguage、prompt、knowledgeMode 和 documentIds。截图缺少本地识题文本时附加所选资料的限长片段，文字问题按关键词检索；禁用和未选资料不发送。主窗口保护状态定期检查，界面提交失败时清除笔试锁定并保留可恢复的普通窗口状态。
