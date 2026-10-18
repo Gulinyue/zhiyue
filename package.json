@@ -1,7 +1,7 @@
 {
   "name": "zhiyue-desktop",
   "productName": "知跃",
-  "version": "1.1.0-beta.5",
+  "version": "1.1.0-beta.6",
   "private": true,
   "description": "知跃：社区免费的 AI 笔试与学习桌面助手",
   "main": "out/main/index.js",
@@ -22,7 +22,8 @@
     "assets:logo": "node scripts/render-brand.mjs",
     "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never",
     "test:guide-smoke": "npm run build && node scripts/smoke.mjs guide",
-    "test:lan-smoke": "npm run build && node scripts/smoke.mjs lan"
+    "test:lan-smoke": "npm run build && node scripts/smoke.mjs lan",
+    "test:capture-smoke": "npm run build && node scripts/smoke.mjs capture"
   },
   "dependencies": {
     "electron-store": "8.2.0",

@@ -159,9 +159,9 @@ app.whenReady().then(async () => {
   assert.equal(main.isFocusable(),false);
   assert.equal(await evaluate('!!document.querySelector(".composer")'),false);
   assert.equal((await evaluate('window.api.interview.windowStatus()')).opacity,.52);
-  const overlay=await waitFor(()=>BrowserWindow.getAllWindows().find(w=>w!==main&&w.isVisible()),'interview hint overlay');
-  await waitFor(()=>native(overlay).affinity===17&&native(overlay).transparent,'protected hints');
-  assert.equal(await overlay.webContents.executeJavaScript('document.body.textContent.includes("截图")'),false);
+  assert.equal(await evaluate('!!document.querySelector("[data-inline-shortcuts=interview]")'),true);
+  assert.equal(await evaluate('document.querySelector("[data-inline-shortcuts]").textContent.includes("截图")'),false);
+  assert.equal(BrowserWindow.getAllWindows().filter(w=>w!==main&&!w.isDestroyed()).length,0,'No separate transparent hint HWND');
   await evaluate('window.api.window.setInteractive(true);window.api.window.setFocusable(true)');
   assert.equal((await evaluate('window.api.interview.windowStatus()')).clickThrough,true);
   shortcuts.get('Control+Shift+X')();shortcuts.get('Control+Shift+E')();
@@ -195,7 +195,7 @@ app.whenReady().then(async () => {
   await evaluate('window.api.settings.patch({interviewOptions:{autoAnswer:false,showShortcutHints:false}})');
   await evaluate('document.querySelector("[data-start-interview]").click()');
   await waitFor(()=>evaluate('document.querySelector("[data-live-interview]")?.dataset.listening==="true"'),'settings start interview');
-  assert.equal(await evaluate('!!document.querySelector(".written-passive-banner")'),false);
+  assert.equal(await evaluate('!!document.querySelector(".written-passive-banner, [data-inline-shortcuts]")'),false);
   assert.equal(BrowserWindow.getAllWindows().some(w=>w!==main&&w.isVisible()),false);
   await pulse();await waitFor(()=>evaluate('!!document.querySelector(".interview-transcript")'),'manual transcript');
   assert.equal(questions.length,2);

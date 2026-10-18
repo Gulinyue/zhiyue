@@ -180,6 +180,9 @@ function configureShortcutOverlaySecurity(policy) {
   shortcutSecurityPolicy = { ...policy };
 }
 function setShortcutOverlayMode(mode, host, enabled = shortcutOverlayEnabledForTask) {
+  // A second transparent HWND can be captured as a black rectangle despite a
+  // successful affinity readback. Windows paints hints inside the task HWND.
+  if (process.platform === 'win32') { shortcutMode = mode;shortcutOverlayEnabledForTask = false;destroyShortcutOverlay();return; }
   const nextEnabled = mode !== "idle" && enabled;
   const stateChanged = shortcutMode !== mode || shortcutOverlayEnabledForTask !== nextEnabled;
   shortcutMode = mode;
