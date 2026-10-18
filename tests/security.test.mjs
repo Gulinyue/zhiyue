@@ -39,6 +39,10 @@ test('IPC limits overlay access to settings reads and layout reports', () => {
   const event = (id, frame = mainFrame) => ({ sender: { id, mainFrame }, senderFrame: frame });
   assert.equal(handlers.get('tokens')(event(1)), 'secret');
   assert.throws(() => handlers.get('tokens')(event(2)), /unauthorized/);
+  ipc.handle('lan:start', () => 'private pairing server');
+  ipc.handle('lan:publish', () => 'private answer');
+  assert.throws(() => handlers.get('lan:start')(event(2)), /unauthorized/);
+  assert.throws(() => handlers.get('lan:publish')(event(2)), /unauthorized/);
   assert.throws(() => handlers.get('tokens')(event(1, {})), /frame/);
   ipc.handle('settings:get', () => ({ opacity: 1 }));
   assert.deepEqual(handlers.get('settings:get')(event(2)), { opacity: 1 });

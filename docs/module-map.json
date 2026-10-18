@@ -30,17 +30,19 @@
     ]
   },
   "src/main/hotkeys/modes.mjs": {
-    "lines": 97,
+    "lines": 99,
     "imports": []
   },
   "src/main/index.mjs": {
-    "lines": 3374,
+    "lines": 3416,
     "imports": [
       "./store/workspace.mjs",
       "./models/local-request.mjs",
       "./models/validation.mjs",
       "../shared/channels.mjs",
       "../shared/onboarding.mjs",
+      "./lan/runtime.mjs",
+      "node:crypto",
       "./ipc/gateway.mjs",
       "electron",
       "node:path",
@@ -97,6 +99,25 @@
   "src/main/ipc/gateway.mjs": {
     "lines": 24,
     "imports": []
+  },
+  "src/main/lan/bridge.mjs": {
+    "lines": 116,
+    "imports": [
+      "node:http",
+      "node:crypto",
+      "../../shared/lan-protocol.mjs"
+    ]
+  },
+  "src/main/lan/runtime.mjs": {
+    "lines": 39,
+    "imports": [
+      "node:os",
+      "node:fs/promises",
+      "node:path",
+      "qrcode",
+      "./bridge.mjs",
+      "../../shared/lan-protocol.mjs"
+    ]
   },
   "src/main/models/adapters.mjs": {
     "lines": 663,
@@ -270,7 +291,7 @@
     "imports": []
   },
   "src/preload/index.cjs": {
-    "lines": 185,
+    "lines": 199,
     "imports": []
   },
   "src/renderer/app.mjs": {
@@ -354,7 +375,7 @@
     ]
   },
   "src/renderer/local/app.mjs": {
-    "lines": 370,
+    "lines": 390,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../vendor/markdown.mjs",
@@ -371,7 +392,9 @@
       "./speech-settings.mjs",
       "./live-interview.mjs",
       "./beginner-guide.mjs",
-      "../../shared/onboarding.mjs"
+      "../../shared/onboarding.mjs",
+      "./lan-settings.mjs",
+      "./lan-sync.mjs"
     ]
   },
   "src/renderer/local/beginner-guide.mjs": {
@@ -398,8 +421,20 @@
     "lines": 15,
     "imports": []
   },
+  "src/renderer/local/lan-settings.mjs": {
+    "lines": 30,
+    "imports": [
+      "../vendor/react-icons-state.mjs"
+    ]
+  },
+  "src/renderer/local/lan-sync.mjs": {
+    "lines": 14,
+    "imports": [
+      "../vendor/react-icons-state.mjs"
+    ]
+  },
   "src/renderer/local/live-interview.mjs": {
-    "lines": 147,
+    "lines": 150,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../vendor/markdown.mjs",
@@ -407,7 +442,8 @@
       "../../shared/interview-audio.mjs",
       "./requests.mjs",
       "./interview-capture.mjs",
-      "../../shared/brand.mjs"
+      "../../shared/brand.mjs",
+      "./lan-sync.mjs"
     ]
   },
   "src/renderer/local/model-card.mjs": {
@@ -453,6 +489,13 @@
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../../shared/written-options.mjs"
+    ]
+  },
+  "src/renderer/mobile/app.mjs": {
+    "lines": 105,
+    "imports": [
+      "../vendor/react-icons-state.mjs",
+      "../vendor/markdown.mjs"
     ]
   },
   "src/renderer/services/gateway.mjs": {
@@ -526,6 +569,10 @@
     "lines": 8,
     "imports": []
   },
+  "src/shared/lan-protocol.mjs": {
+    "lines": 18,
+    "imports": []
+  },
   "src/shared/local-profile.mjs": {
     "lines": 4,
     "imports": []
@@ -543,7 +590,7 @@
     "imports": []
   },
   "src/shared/window-shortcuts.mjs": {
-    "lines": 8,
+    "lines": 9,
     "imports": []
   },
   "src/shared/written-options.mjs": {

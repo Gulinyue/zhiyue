@@ -15,6 +15,8 @@ import { SpeechSettings } from './speech-settings.mjs';
 import { LiveInterview } from './live-interview.mjs';
 import { BeginnerGuide } from './beginner-guide.mjs';
 import { GUIDE_EXAMPLES } from '../../shared/onboarding.mjs';
+import { LanSettings } from './lan-settings.mjs';
+import { useLanAnswer } from './lan-sync.mjs';
 
 const h = React.createElement;
 const api = window.api;
@@ -37,6 +39,8 @@ function App() {
   const [images, setImages] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
   const [capturing, setCapturing] = React.useState(false);
+  const [lanError, setLanError] = React.useState('');
+  const remoteCapture = React.useRef(false);
   const [focus, setFocus] = React.useState(false);
   const [through, setThrough] = React.useState(false);
   const [writtenActive, setWrittenActive] = React.useState(false);
@@ -64,6 +68,7 @@ function App() {
   const reloadModels = async () => setModels(await api.personalModels.load());
   const reloadHistory = async () => setHistory(await api.workspace.list());
   const reloadDocuments = async () => setDocuments(await api.knowledgeLibrary.list(LOCAL_ACCOUNT));
+  useLanAnswer({ conversation, busy, capturing, error: lanError, active: page !== 'interview' });
 
   React.useEffect(() => {
     mounted.current = true;
@@ -74,8 +79,9 @@ function App() {
     const unsubOpacity = api.window.onOpacityPreviewed(setOpacityPreview);
     const unsubInteraction = api.window.onInteractionRecovered(() => { setThrough(false); setOpacityPreview(null); });
     const unsubHotkeys = api.hotkey.onTriggered((action) => actions.current.hotkey?.(action));
+    const unsubLan = api.lan.onCommand(command => { void actions.current.lanCommand?.(command); });
     const unsubReveal = api.window.onRevealRequested(async ({ token }) => { await paint(); await api.window.commitReveal(token); });
-    return () => { mounted.current = false; unsubWritten(); unsubInterview(); unsubSettings(); unsubOpacity(); unsubInteraction(); unsubHotkeys(); unsubReveal(); if (active.current) void api.personalModels.cancel(active.current); };
+    return () => { mounted.current = false; unsubWritten(); unsubInterview(); unsubSettings(); unsubOpacity(); unsubInteraction(); unsubHotkeys(); unsubLan(); unsubReveal(); if (active.current) void api.personalModels.cancel(active.current); };
   }, []);
   React.useEffect(() => { if (follow.current) thread.current?.scrollTo({ top: thread.current.scrollHeight, behavior: 'auto' }); }, [conversation.messages, busy]);
   React.useEffect(() => { void api.hotkey.setAnswerScrollActive(['chat', 'exam', 'interview'].includes(page)); return () => { void api.hotkey.setAnswerScrollActive(false); }; }, [page]);
@@ -101,7 +107,7 @@ function App() {
     const request = buildLocalRequest({ question: userText, images: attachments, history: conversation.messages, documents, mode: conversation.mode, prompt: settings?.customPrompts || '', writtenOptions: settings?.writtenOptions });
     active.current = requestId;
     follow.current = true;
-    setBusy(true); setDraft(''); setImages([]); setPage(conversation.mode === 'written' ? 'exam' : 'chat'); setNotice(null); setConversation(next);
+    setBusy(true); setLanError(''); setDraft(''); setImages([]); setPage(conversation.mode === 'written' ? 'exam' : 'chat'); setNotice(null); setConversation(next);
     let text = '';
     let flushTimer;
     const flush = () => {
@@ -132,7 +138,7 @@ function App() {
     if (active.current || captureLease.current) return;
     if (submit && !chooseModelSlot(models.profiles, true)) { setPage('settings'); report('请先配置截图模型。'); return; }
     const epoch = captureEpoch.current;
-    captureLease.current = true; setCapturing(true);
+    captureLease.current = true; setCapturing(true); setLanError('');
     try {
       const result = await api.screenshot.capture({ origin: 'local', displayId: settings?.localScreenshotDisplayId || displays[0]?.id, scroll, enqueue: false });
       if (epoch !== captureEpoch.current) return;
@@ -146,7 +152,7 @@ function App() {
         setCapturing(false);
         await actions.current.sendCaptured(draft || (conversation.mode === 'written' ? WRITTEN_CAPTURE_PROMPT : '请分析截图中的问题并解答。'), nextImages, epoch);
       }
-    } catch (error) { report(error.message); }
+    } catch (error) { report(error.message);setLanError(error.message); }
     finally { if (epoch === captureEpoch.current) { captureLease.current = false; setCapturing(false); } }
   }
   async function writtenChanged(state) {
@@ -217,7 +223,7 @@ function App() {
     if (id === 'interview') { void enterInterview(); return; }
     if (id === 'interview' && (active.current || captureLease.current)) { report('请先停止当前生成或等待截图完成，再进入实时面试。'); return; }
     if (id === 'exam') { void enterWritten(); return; }
-    if (id === 'chat' && conversation.mode === 'written') {
+    if (id === 'chat' && ['written', 'interview'].includes(conversation.mode)) {
       if (active.current || captureLease.current) { report('请先停止当前生成或等待截图完成。'); return; }
       follow.current = true; setConversation(fresh()); setDraft(''); setImages([]);
     }
@@ -243,6 +249,19 @@ function App() {
     } catch (error) { report(error.message); }
   }
   actions.current = {
+    capture,
+    async lanCommand(command) {
+      const error = command?.expiresAt < Date.now() ? '操作已过期，请重试。' : command?.action !== 'capture' ? '无效的操作。' : remoteCapture.current || active.current || captureLease.current || transition.current ? '电脑正在处理任务，请稍后再截图。' : interviewState.current || page === 'interview' ? '请先退出实时面试，再截图解题。' : !chooseModelSlot(models.profiles, true) ? '请先在电脑配置截图分析模型。' : '';
+      if (error) { await api.lan.ack({ id: command?.id, ok: false, error });return; }
+      remoteCapture.current = true;setLanError('');
+      try {
+        await api.lan.ack({ id: command.id, ok: true });
+        if (!writtenState.current) await enterWritten();
+        if (!writtenState.current || !mounted.current) throw new Error('电脑未能进入笔试模式，请检查电脑提示后重试。');
+        await actions.current.capture(true, false);
+      } catch (failure) { report(failure.message);setLanError(failure.message);await api.lan.publish({ mode: 'written', error: failure.message, messages: [] }).catch(() => {}); }
+      finally { remoteCapture.current = false; }
+    },
     writtenChanged,
     interviewChanged,
     async sendCaptured(question, captured, epoch) {
@@ -330,6 +349,7 @@ function App() {
   function renderSettings() {
     return h('div', { className: 'page-scroll' }, h('div', { className: 'page-heading' }, h('h1', null, '连接与设置'), h('p', null, '选择模型服务商，使用 API Key 或官方 ChatGPT 账号授权。')),
       h(DeveloperContact, { report }),
+      h(LanSettings, { report, settings }),
       h('section', { className: 'panel guide-entry', 'data-guide-entry': true }, h('div', null, h('h3', null, '第一次使用？从零开始配置'), h('p', null, '用 DeepSeek 配置文字与截图，用百炼北京配置语音。注册、找 Key、复制粘贴和第一次使用，一步一步教你。')), button('打开新手教程 →', () => setPage('guide'), { className: 'primary' })),
       h(SpeechSettings, { settings, patchSettings, report, start: () => enterInterview(), example: guideExamples.speech }),
       h(WrittenSettings, { settings, documents, patchSettings, start: () => enterWritten() }),
@@ -346,7 +366,7 @@ function App() {
       h('section', { className: 'panel about-brand', 'data-about-brand': true },
         h('img', { src: './assets/logo.svg', alt: '知跃 Logo' }),
         h('div', { className: 'about-brand-copy' }, h('h3', null, BRAND.name + ' · ' + BRAND.englishName + ' ' + BRAND.version), h('p', null, BRAND.tagline), h('p', { className: 'developer-watermark' }, '开发者 · ' + BRAND.developer), h('p', { className: 'muted small' }, '社区免费版 · 连接自己的模型，数据保存在本机。'))),
-      h('section', { className: 'panel capability-note' }, h('h3', null, '这个版本支持什么'), h('p', null, '支持实时面试系统收音、分句转写与自动回答，以及文字问答、笔试截图出答案、文字模拟面试、本机知识库和会话记录。手机远控尚未接入。'), h('p', { className: 'muted small' }, '社区版不依赖应用账号服务器。使用在线语音与回答模型时需联网；也可连接本机兼容服务。')));
+      h('section', { className: 'panel capability-note' }, h('h3', null, '这个版本支持什么'), h('p', null, '支持实时面试、笔试截图出答案、本机知识库和会话记录。同一局域网配对后，手机可遥控电脑截图，两端同步显示回答；电脑可滚动手机的知跃答案页面。'), h('p', { className: 'muted small' }, '社区版不依赖应用账号服务器。使用在线语音与回答模型时需联网；也可连接本机兼容服务。')));
   }
   const pages = [['chat', '✦', '工作台'], ['interview', '◉', '实时面试'], ['exam', '▣', '笔试模式'], ['knowledge', '▤', '本机知识库'], ['history', '◷', '会话记录'], ['guide', '?', '新手教程'], ['settings', '⚙', '连接与设置']];
   return h('div', { className: `local-app ${focus ? 'is-focus' : ''} ${writtenActive ? 'is-written-passive' : ''} ${interviewPassive ? 'is-interview-passive' : ''}`, 'data-local-app': true, 'data-written-active': writtenActive, 'data-interview-passive': interviewPassive, style: { opacity: opacityPreview ?? (writtenActive ? normalizeWrittenOptions(settings?.writtenOptions).opacity : interviewPassive ? settings?.interviewOptions?.opacity || .52 : through ? settings?.mouseThroughOpacity || 0.48 : settings?.opacity || 1) } },
@@ -362,7 +382,7 @@ function App() {
           h('input', { type: 'range', min: .01, max: 1, step: .01, value: opacityPreview ?? (through ? settings?.mouseThroughOpacity || .48 : settings?.opacity || 1), onChange: (e) => patchSettings(through ? { mouseThroughOpacity: Number(e.target.value) } : { opacity: Number(e.target.value) }) })),
         button('隐藏', () => api.window.hide(), { title: `${settings?.hotkeys?.['window:show'] || '托盘'} 解除隐藏`, 'aria-label': '隐藏窗口' }), button(focus ? '退出专注' : '专注窗口', () => toggleFocus()), button('—', () => api.window.minimize(), { 'aria-label': '最小化' }), button('×', () => api.window.close(), { 'aria-label': '关闭窗口' }))),
       notice && h('div', { className: notice.success ? 'notice success' : 'notice', role: notice.success ? 'status' : 'alert' }, h('span', null, notice.text), button('×', () => setNotice(null), { 'aria-label': '关闭提示' })),
-      page === 'interview' ? h(LiveInterview, { key: interviewKey, seed: interviewSeed, settings, models, documents, report, passive: interviewPassive, onStarted: interviewChanged, configure: () => setPage('settings') }) : page === 'guide' ? h(BeginnerGuide, { models, onConfigure: configureFromGuide, onNavigate: selectPage, report }) : page === 'chat' || page === 'exam' ? renderChat() : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && !writtenActive && !interviewPassive && h(FocusResizeHandle));
+      page === 'interview' ? h(LiveInterview, { key: interviewKey, seed: interviewSeed, settings, models, documents, report, passive: interviewPassive, onStarted: interviewChanged, onConversation: setConversation, configure: () => setPage('settings') }) : page === 'guide' ? h(BeginnerGuide, { models, onConfigure: configureFromGuide, onNavigate: selectPage, report }) : page === 'chat' || page === 'exam' ? renderChat() : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && !writtenActive && !interviewPassive && h(FocusResizeHandle));
 }
 
 const surface = new URLSearchParams(window.location.search).get('surface');

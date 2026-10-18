@@ -3,6 +3,8 @@ import { normalizeLocalModelRunInput } from "./models/local-request.mjs";
 import { isLoopbackHostname } from "./models/validation.mjs";
 import { IPC } from "../shared/channels.mjs";
 import { GUIDE_LINKS, GUIDE_VALUES } from '../shared/onboarding.mjs';
+import { createLanRuntime } from './lan/runtime.mjs';
+import { randomUUID } from 'node:crypto';
 import { createIpcGateway } from "./ipc/gateway.mjs";
 import * as electron from "electron";
 import * as path from "node:path";
@@ -846,6 +848,9 @@ function setMainRendererUnavailableHandler(handler) {
 }
 function failClosedForRendererLoss(owner, reason) {
   if (win !== owner) return;
+  void lanRuntime.dispose();
+  for (const pending of lanCommands.values()) { clearTimeout(pending.timer);pending.reject(Object.assign(new Error('电脑窗口已断开，请在电脑重新开启互通。'), { status: 409 })); }
+  lanCommands.clear();
   const previousKind = passiveTaskKind();
   clearRevealTimer("task");
   clearRevealTimer("interactive");
@@ -2013,6 +2018,7 @@ const answerScrollRegisteredActions = /* @__PURE__ */ new Set();
 const taskScopedBareRegisteredActions = /* @__PURE__ */ new Set();
 let activeWorkMode = "idle";
 let mobileViewportActive = false;
+let lanViewportActive = false;
 let answerScrollActive = false;
 let capturing = false;
 const createQuadrupleClickListener = process.platform === "darwin" ? createMacQuadrupleClickListener : createWindowsQuadrupleClickListener;
@@ -2144,6 +2150,7 @@ function setCapturing(next) {
 }
 function onTrigger(action) {
   if (!isHotkeyAllowedForWorkMode(activeWorkMode, action)) return;
+  if (action === 'mobile:scrollUp' || action === 'mobile:scrollDown') { lanRuntime.bridge.scrollMobile(action.endsWith('Up') ? 'up' : 'down');return; }
   if (writtenSessionActive && (action === 'exam:exit' || action === 'session:reset')) { exitWrittenMode(); return; }
   if (interviewWindowActive && ['exam:exit', 'session:reset', 'listen:toggle'].includes(action)) { exitPassiveTask('interview'); return; }
   if (passiveTaskKind() && action === 'window:toggleMouseThrough') return;
@@ -2281,7 +2288,7 @@ function unregisterTaskScopedBareHotkeys() {
 }
 function syncMobileViewportHotkeys() {
   unregisterMobileViewportHotkeys();
-  if (capturing || !mobileViewportActive || activeWorkMode === "idle") return;
+  if (capturing || !lanViewportActive && (!mobileViewportActive || activeWorkMode === "idle")) return;
   const { hotkeys } = getSettings();
   for (const action of MOBILE_VIEWPORT_HOTKEY_ACTIONS) {
     const accel = hotkeys[action]?.trim();
@@ -2421,6 +2428,26 @@ function snapshotTaskSurfaceQaWindow(candidate) {
 }
 let remoteControlLocked = false;
 let remoteControlSuspended = false;
+const lanCommands = new Map();
+const lanRuntime = createLanRuntime({
+  mobileRoot: path.join(__dirname, '../mobile'),
+  isBlocked: () => remoteControlPowerState().blocked,
+  onChange: (state) => { const next = !state.blocked && state.devices.some(device => device.connected);if (next !== lanViewportActive) { lanViewportActive = next;syncMobileViewportHotkeys(); }if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('lan:statusChanged', state); },
+  onCommand: async (action) => {
+    if (remoteControlPowerState().blocked) throw Object.assign(new Error('电脑已锁定或休眠。'), { status: 423 });
+    if (!win || win.isDestroyed() || win.webContents.isDestroyed()) throw Object.assign(new Error('电脑窗口未准备好。'), { status: 409 });
+    if (action === 'desktop-show') { showMainWindowInteractive();return; }
+    if (action === 'desktop-hide') { hideWindow();return; }
+    if (action === 'exit-mode') { const kind = passiveTaskKind();if (kind) exitPassiveTask(kind);return; }
+    if (action === 'desktop-scroll-up' || action === 'desktop-scroll-down') { forward(action.endsWith('up') ? 'answer:scrollUp' : 'answer:scrollDown');return; }
+    if (action !== 'capture') throw new Error('不支持的操作。');
+    await new Promise((resolve, reject) => {
+      const id = randomUUID();
+      const timer = setTimeout(() => { lanCommands.delete(id);reject(Object.assign(new Error('电脑界面暂未响应，请稍后重试。'), { status: 409 })); }, 2500);
+      lanCommands.set(id, { resolve, reject, timer });win.webContents.send('lan:command', { id, action, expiresAt: Date.now() + 2200 });
+    });
+  },
+});
 let powerMonitorBridgeRegistered = false;
 let ipcRegistered = false;
 let taskSurfaceRequestGeneration = 0;
@@ -2457,6 +2484,16 @@ function registerIpc() {
   if (ipcRegistered) return;
   ipcRegistered = true;
   registerWorkspaceIpc(mainIpc);
+  mainIpc.handle('lan:status', () => lanRuntime.status());
+  mainIpc.handle('lan:start', (_event, address) => lanRuntime.start(address));
+  mainIpc.handle('lan:stop', () => lanRuntime.stop());
+  mainIpc.handle('lan:rotate', () => lanRuntime.rotate());
+  mainIpc.handle('lan:approve', (_event, id, allow) => { if (typeof id !== 'string' || typeof allow !== 'boolean') throw new Error('无效的配对确认。');return lanRuntime.approve(id, allow); });
+  mainIpc.handle('lan:revoke', (_event, id) => { if (typeof id !== 'string') throw new Error('无效的设备。');return lanRuntime.revoke(id); });
+  mainIpc.handle('lan:scroll', (_event, direction) => lanRuntime.bridge.scrollMobile(direction));
+  mainIpc.handle('lan:publish', (_event, snapshot) => lanRuntime.bridge.publish(snapshot));
+  mainIpc.handle('lan:ack', (_event, value) => { const pending = lanCommands.get(value?.id);if (!pending) return;lanCommands.delete(value.id);clearTimeout(pending.timer);if (value.ok === true) pending.resolve();else pending.reject(Object.assign(new Error(typeof value.error === 'string' ? value.error.slice(0, 200) : '电脑暂不接受截图。'), { status: 409 })); });
+  mainIpc.handle('lan:copyLink', () => { const state = lanRuntime.status();if (!state.enabled) throw new Error('请先开启局域网互通。');if (getSettings().disableClipboard) throw new Error('剪贴板已禁用。');electron.clipboard.writeText(`${state.url}/#code=${state.code}`); });
   mainIpc.handle('tutorial:openLink', (_event, id) => {
     if (typeof id !== 'string' || !Object.hasOwn(GUIDE_LINKS, id)) throw new Error('无效的教程链接。');
     return electron.shell.openExternal(GUIDE_LINKS[id]);
@@ -2956,18 +2993,22 @@ function registerRemoteControlPowerMonitorBridge() {
   powerMonitorBridgeRegistered = true;
   electron.powerMonitor.on("lock-screen", () => {
     remoteControlLocked = true;
+    lanRuntime.bridge.setBlocked(true);
     broadcast(IPC.remoteControlPowerStateChanged, remoteControlPowerState());
   });
   electron.powerMonitor.on("unlock-screen", () => {
     remoteControlLocked = false;
+    lanRuntime.bridge.setBlocked(remoteControlPowerState().blocked);
     broadcast(IPC.remoteControlPowerStateChanged, remoteControlPowerState());
   });
   electron.powerMonitor.on("suspend", () => {
     remoteControlSuspended = true;
+    lanRuntime.bridge.setBlocked(true);
     broadcast(IPC.remoteControlPowerStateChanged, remoteControlPowerState());
   });
   electron.powerMonitor.on("resume", () => {
     remoteControlSuspended = false;
+    lanRuntime.bridge.setBlocked(remoteControlPowerState().blocked);
     broadcast(IPC.remoteControlPowerStateChanged, remoteControlPowerState());
   });
 }
@@ -3358,6 +3399,7 @@ if (!gotLock) {
   });
   electron.app.on("will-quit", () => {
     stopInterview();
+    void lanRuntime.dispose();
     clearInterval(writtenProtectionTimer);
     destroyAppTray();
     flushPendingWindowPosition();
