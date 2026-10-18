@@ -11,7 +11,7 @@ export function WrittenSettings({ settings, documents, patchSettings, start }) {
     h('div', { className: 'shortcut-hints-card', 'data-written-setting': 'showShortcutHints' },
       h('div', { className: 'shortcut-hints-copy' },
         h('div', { className: 'shortcut-hints-heading' }, h('strong', { id: 'shortcut-hints-title' }, '快捷键提示栏'), h('span', { className: `shortcut-hints-status${options.showShortcutHints ? ' is-on' : ''}`, role: 'status' }, options.showShortcutHints ? '当前：已开启' : '当前：已关闭')),
-        h('p', { id: 'shortcut-hints-description' }, '决定进入笔试模式后是否显示快捷键提示。关闭提示栏后，所有快捷键仍可使用。')),
+        h('p', { id: 'shortcut-hints-description' }, 'Windows 提示栏显示在主悬浮窗内，共用穿透与捕获排除。关闭提示栏后，所有快捷键仍可使用。')),
       h('div', { className: 'shortcut-hints-actions', role: 'group', 'aria-labelledby': 'shortcut-hints-title', 'aria-describedby': 'shortcut-hints-description' },
         h('button', { type: 'button', className: 'shortcut-hints-choice', 'data-shortcut-hints': 'show', 'aria-pressed': options.showShortcutHints, onClick: () => patch({ showShortcutHints: true }) }, '显示提示栏'),
         h('button', { type: 'button', className: 'shortcut-hints-choice', 'data-shortcut-hints': 'hide', 'aria-pressed': !options.showShortcutHints, onClick: () => patch({ showShortcutHints: false }) }, '隐藏提示栏'))),

@@ -34,7 +34,7 @@
     "imports": []
   },
   "src/main/index.mjs": {
-    "lines": 3416,
+    "lines": 3419,
     "imports": [
       "./store/workspace.mjs",
       "./models/local-request.mjs",
@@ -375,7 +375,7 @@
     ]
   },
   "src/renderer/local/app.mjs": {
-    "lines": 390,
+    "lines": 392,
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../vendor/markdown.mjs",
@@ -394,7 +394,8 @@
       "./beginner-guide.mjs",
       "../../shared/onboarding.mjs",
       "./lan-settings.mjs",
-      "./lan-sync.mjs"
+      "./lan-sync.mjs",
+      "./inline-shortcuts.mjs"
     ]
   },
   "src/renderer/local/beginner-guide.mjs": {
@@ -409,6 +410,12 @@
     "imports": [
       "../vendor/react-icons-state.mjs",
       "../../shared/brand.mjs"
+    ]
+  },
+  "src/renderer/local/inline-shortcuts.mjs": {
+    "lines": 16,
+    "imports": [
+      "../vendor/react-icons-state.mjs"
     ]
   },
   "src/renderer/local/interview-capture.mjs": {

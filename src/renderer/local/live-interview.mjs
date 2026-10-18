@@ -131,7 +131,7 @@ export function LiveInterview({ settings, models, documents, seed, report, confi
   }, []);
   React.useEffect(() => { if (follow.current) thread.current?.scrollTo({ top: thread.current.scrollHeight, behavior: 'auto' }); }, [conversation.messages]);
   return h('div', { className: 'chat-layout live-interview', 'data-live-interview': true, 'data-listening': listening },
-    passive && options.showShortcutHints && h('div', { className: 'written-passive-banner' }, h('span', null, pending ? '面试中 · 正在转写' : busy ? '面试中 · 正在生成口述稿' : '面试中 · 仅系统声音 · 鼠标穿透'), h('kbd', null, `${settings?.hotkeys?.['exam:exit'] || 'Ctrl+Shift+Z'} 退出`), !options.autoAnswer && h('kbd', null, `${settings?.hotkeys?.['llm:resendHistory'] || 'Alt+C'} 回答当前问题`)),
+    api.runtime.platform !== 'win32' && passive && options.showShortcutHints && h('div', { className: 'written-passive-banner' }, h('span', null, pending ? '面试中 · 正在转写' : busy ? '面试中 · 正在生成口述稿' : '面试中 · 仅系统声音 · 鼠标穿透'), h('kbd', null, `${settings?.hotkeys?.['exam:exit'] || 'Ctrl+Shift+Z'} 退出`), !options.autoAnswer && h('kbd', null, `${settings?.hotkeys?.['llm:resendHistory'] || 'Alt+C'} 回答当前问题`)),
     passive && (timing.asrMs !== undefined || timing.firstMs != null) && h('div', { className: 'interview-timing', 'data-interview-timing': true }, [timing.asrMs !== undefined ? `最近一片转写 ${(timing.asrMs / 1000).toFixed(2)} 秒` : '', timing.firstMs != null ? `回答首字 ${(timing.firstMs / 1000).toFixed(2)} 秒` : '', queued ? `${queued} 个问题等待回答` : ''].filter(Boolean).join(' · ')),
     !passive && h('div', { className: 'interview-toolbar no-drag' },
       h('div', null, h('strong', null, '实时面试'), h('p', null, listening ? pending ? '正在转写系统声音…' : '正在聆听面试官 · 仅系统声音' : starting ? '正在连接系统收音…' : '系统收音 → 分句转写 → 自动生成回答')),

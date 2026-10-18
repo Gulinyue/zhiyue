@@ -223,6 +223,7 @@ app.whenReady().then(async () => {
   await waitFor(() => evaluate('[...document.querySelectorAll(".chat-thread pre, .chat-thread pre code")].every(el=>el.scrollLeft === 0)'), 'horizontal scroll back');
   await click('专注窗口');
   await waitFor(() => evaluate('!!document.querySelector(".is-focus")'), 'focus UI');
+  if (process.platform === 'win32') assert.equal(await evaluate('!!document.querySelector("[data-inline-shortcuts]")'), true);
   await waitFor(() => main.isVisible(), 'focus reveal');
   const focusBounds = main.getBounds();
   await evaluate(`(() => { const el=document.querySelector('.focus-resize-handle'); if(!el)throw Error('Missing resize handle'); el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,pointerId:7,screenX:100,screenY:100})); el.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,pointerId:7,screenX:160,screenY:145})); el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:7,screenX:160,screenY:145})); })()`);
@@ -235,7 +236,9 @@ app.whenReady().then(async () => {
   assert.equal(main.isVisible(), false);
   assert.equal(await evaluate(`window.api.window.commitTaskSurface(${token + 1})`), false);
   assert.equal(await evaluate(`window.api.window.commitTaskSurface(${token})`), true);
-  const overlay = await waitFor(() => BrowserWindow.getAllWindows().find((win) => win !== main && !win.isDestroyed() && win.isVisible()), 'shortcut overlay');
+  const overlay = process.platform === 'win32' ? null : await waitFor(() => BrowserWindow.getAllWindows().find((win) => win !== main && !win.isDestroyed() && win.isVisible()), 'shortcut overlay');
+  if (process.platform === 'win32') assert.equal(BrowserWindow.getAllWindows().filter(win=>win!==main&&!win.isDestroyed()).length, 0);
+  if (overlay) {
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.workspace.list()'));
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.personalModels.load()'));
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.app.openSupport()'));
@@ -243,6 +246,7 @@ app.whenReady().then(async () => {
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.interview.connection()'));
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.tutorial.openLink("deepseek")'));
   await assert.rejects(overlay.webContents.executeJavaScript('window.api.tutorial.copyValue("deepseekBase")'));
+  }
   assert.equal(externalUrls.length, 0);
   const restore = await evaluate('window.api.window.setTaskSurface("idle", "preparation", false)');
   assert.equal(await evaluate(`window.api.window.commitTaskSurface(${restore})`), true);
@@ -292,16 +296,15 @@ app.whenReady().then(async () => {
   assert.equal(main.isFocusable(), false);
   await evaluate('window.api.window.setInteractive(true)'); await evaluate('window.api.window.setFocusable(true)');
   assert.equal((await evaluate('window.api.written.status()')).clickThrough, true, 'Generic IPC cannot unlock written mode');
-  const writtenOverlay = await waitFor(() => BrowserWindow.getAllWindows().find(w=>w !== main && !w.isDestroyed() && w.isVisible()), 'protected written shortcut overlay');
+  const writtenOverlay = process.platform === 'win32' ? null : await waitFor(() => BrowserWindow.getAllWindows().find(w=>w !== main && !w.isDestroyed() && w.isVisible()), 'protected written shortcut overlay');
   if (process.platform === 'win32') {
     assert.deepEqual(nativeState(main), { affinity: 17, transparent: true, noActivate: true });
-    await waitFor(() => nativeState(writtenOverlay).transparent && nativeState(writtenOverlay).affinity === 17, 'overlay protection priming completes');
-    assert.equal(nativeState(writtenOverlay).affinity, 17);
-    assert.equal(nativeState(writtenOverlay).transparent, true);
+    assert.equal(await evaluate('!!document.querySelector("[data-inline-shortcuts=exam]")'), true);
+    assert.equal(BrowserWindow.getAllWindows().filter(w=>w!==main&&!w.isDestroyed()).length, 0, 'Windows hints share the protected task HWND');
     main.setContentProtection(false);
     await waitFor(() => nativeState(main).affinity === 17, 'written capture protection recovers after native state loss');
   }
-  await assert.rejects(writtenOverlay.webContents.executeJavaScript('window.api.written.exit()'));
+  if (writtenOverlay) await assert.rejects(writtenOverlay.webContents.executeJavaScript('window.api.written.exit()'));
   fs.writeFileSync(path.join(artifacts, 'zhiyue-written-passive.png'), (await main.webContents.capturePage()).toPNG());
   await waitFor(() => evaluate('window.api.hotkey.status().then(s=>s["screenshot:capture"])'), 'written capture shortcut registration');
   const writtenRequestCount = requests.length;
@@ -337,7 +340,7 @@ app.whenReady().then(async () => {
   await waitFor(() => evaluate('window.api.settings.get().then(s=>s.writtenOptions.showShortcutHints === false)'), 'hints disabled and persisted');
   await evaluate('document.querySelector("[data-page=exam]").click()');
   await waitFor(() => evaluate('!!document.querySelector(".is-written-passive")') && main.isVisible(), 'written mode without hints');
-  assert.equal(await evaluate('!!document.querySelector(".written-passive-banner, .written-key")'), false);
+  assert.equal(await evaluate('!!document.querySelector(".written-passive-banner, .written-key, [data-inline-shortcuts]")'), false);
   assert.equal(BrowserWindow.getAllWindows().filter(w=>w !== main && !w.isDestroyed()).length, 0, 'No shortcut overlay is created when disabled');
   const beforeNoHintCapture = requests.length;
   const beforeNoHintMessages = await evaluate(`window.api.workspace.read(${JSON.stringify(writtenRecord.id)}).then(r=>r.messages.length)`);

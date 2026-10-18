@@ -17,6 +17,7 @@ import { BeginnerGuide } from './beginner-guide.mjs';
 import { GUIDE_EXAMPLES } from '../../shared/onboarding.mjs';
 import { LanSettings } from './lan-settings.mjs';
 import { useLanAnswer } from './lan-sync.mjs';
+import { InlineShortcutHints } from './inline-shortcuts.mjs';
 
 const h = React.createElement;
 const api = window.api;
@@ -298,7 +299,7 @@ function App() {
           button(capturing ? '正在截图…' : '截图出答案', () => capture(true), { className: 'primary', disabled: busy || capturing, 'data-written-capture': true, title: settings?.hotkeys?.['screenshot:capture'] }),
           button('滚动截图出答案', () => capture(true, true), { disabled: busy || capturing, title: settings?.hotkeys?.['screenshot:captureScrolling'] }),
           button('新一题', () => { follow.current = true; setConversation(fresh('written')); setDraft(''); setImages([]); }, { disabled: busy || capturing }))),
-      writtenActive && normalizeWrittenOptions(settings?.writtenOptions).showShortcutHints && h('div', { className: 'written-passive-banner' }, h('span', null, `笔试中 · 鼠标穿透 · ${api.runtime.platform === 'win32' ? 'Windows 捕获排除' : '非 Windows 系统'}`), h('kbd', null, `${settings?.hotkeys?.['screenshot:capture'] || '未设置'} 截图`), h('kbd', null, `${settings?.hotkeys?.['exam:exit'] || '未设置'} 退出笔试`)),
+      api.runtime.platform !== 'win32' && writtenActive && normalizeWrittenOptions(settings?.writtenOptions).showShortcutHints && h('div', { className: 'written-passive-banner' }, h('span', null, '笔试中 · 鼠标穿透'), h('kbd', null, `${settings?.hotkeys?.['screenshot:capture'] || '未设置'} 截图`), h('kbd', null, `${settings?.hotkeys?.['exam:exit'] || '未设置'} 退出笔试`)),
       h('div', { className: 'chat-thread', ref: thread, onScroll: () => { const el = thread.current; if (el) follow.current = el.scrollHeight - el.clientHeight - el.scrollTop < 32; } },
         !conversation.messages.length ? conversation.mode === 'written' ? h('div', { className: 'written-welcome' },
           h('img', { src: './assets/logo.svg', alt: '知跃标志', className: 'written-logo' }),
@@ -381,6 +382,7 @@ function App() {
           h('span', null, Math.round((opacityPreview ?? (through ? settings?.mouseThroughOpacity || .48 : settings?.opacity || 1)) * 100) + '%'),
           h('input', { type: 'range', min: .01, max: 1, step: .01, value: opacityPreview ?? (through ? settings?.mouseThroughOpacity || .48 : settings?.opacity || 1), onChange: (e) => patchSettings(through ? { mouseThroughOpacity: Number(e.target.value) } : { opacity: Number(e.target.value) }) })),
         button('隐藏', () => api.window.hide(), { title: `${settings?.hotkeys?.['window:show'] || '托盘'} 解除隐藏`, 'aria-label': '隐藏窗口' }), button(focus ? '退出专注' : '专注窗口', () => toggleFocus()), button('—', () => api.window.minimize(), { 'aria-label': '最小化' }), button('×', () => api.window.close(), { 'aria-label': '关闭窗口' }))),
+      api.runtime.platform === 'win32' && focus && (interviewPassive ? settings?.interviewOptions?.showShortcutHints !== false : normalizeWrittenOptions(settings?.writtenOptions).showShortcutHints) && h(InlineShortcutHints, { settings, mode: page === 'interview' ? 'interview' : 'exam', through }),
       notice && h('div', { className: notice.success ? 'notice success' : 'notice', role: notice.success ? 'status' : 'alert' }, h('span', null, notice.text), button('×', () => setNotice(null), { 'aria-label': '关闭提示' })),
       page === 'interview' ? h(LiveInterview, { key: interviewKey, seed: interviewSeed, settings, models, documents, report, passive: interviewPassive, onStarted: interviewChanged, onConversation: setConversation, configure: () => setPage('settings') }) : page === 'guide' ? h(BeginnerGuide, { models, onConfigure: configureFromGuide, onNavigate: selectPage, report }) : page === 'chat' || page === 'exam' ? renderChat() : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && !writtenActive && !interviewPassive && h(FocusResizeHandle));
 }
