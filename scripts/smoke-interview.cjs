@@ -9,6 +9,7 @@ fs.mkdirSync(path.join(root, '.runtime'), { recursive: true });
 fs.mkdirSync(path.join(root, 'artifacts'), { recursive: true });
 process.env.ZHIYUE_USER_DATA_DIR = fs.mkdtempSync(path.join(root, '.runtime', 'interview-smoke-'));
 const errors = [], external = [], network = [], questions = [];
+const synced = [];let lanAbort;
 const shortcuts = new Map(), register = globalShortcut.register.bind(globalShortcut);
 globalShortcut.register = (key, handler) => { const ok = register(key, handler); if (ok) shortcuts.set(key, handler); return ok; };
 let qwenRequests=0, glmRequests=0, measuredTiming="", earlyTranscriptionVerified=false;
@@ -47,7 +48,7 @@ const server = http.createServer(async (req, res) => {
     questions.push(text);
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const delta = (text) => res.write('data: ' + JSON.stringify({ choices: [{ delta: { content: text } }] }) + '\n\n');
-    delta('我的理解是，缓存问题要先保护数据库。'); if (holdAnswer) { heldAnswer = res; return; } setTimeout(() => { delta('我会通过预热、合理过期与限流分散压力，针对热点用互斥锁限制回源，再用监控判断是否需要调整，在可用性和数据新鲜度之间做好取舍。'); res.end('data: [DONE]\n\n'); }, 120);
+    delta('我的理解是，缓存问题要先保护数据库。'); if (holdAnswer) { heldAnswer = res; return; } setTimeout(() => { delta('我会通过预热、合理过期与限流分散压力，针对热点用互斥锁限制回源，再用监控判断是否需要调整，在可用性和数据新鲜度之间做好取舍。'); res.end('data: [DONE]\n\n'); }, 400);
   } catch (error) { errors.push(error.message); res.writeHead(500); res.end('{}'); }
 });
 const waitFor = async (fn, label, timeout = 15000) => {
@@ -58,7 +59,8 @@ const waitFor = async (fn, label, timeout = 15000) => {
 let finished = false;
 function finish(code, detail) {
   if (finished) return; finished = true;
-  fs.writeFileSync(path.join(root, 'artifacts/interview-smoke-report.json'), JSON.stringify({ ok: code === 0, detail, speechRequests, qwenRequests, glmRequests, measuredTiming, earlyTranscriptionVerified, answerRequests: questions.length, errors, unexpectedNetwork: network, source: 'synthetic AudioContext; microphone never used; speech and model mocked' }, null, 2));
+  lanAbort?.abort();
+  fs.writeFileSync(path.join(root, 'artifacts/interview-smoke-report.json'), JSON.stringify({ ok: code === 0, detail, speechRequests, qwenRequests, glmRequests, measuredTiming, earlyTranscriptionVerified, answerRequests: questions.length, syncedStates: synced.map(value=>({mode:value.mode,busy:value.busy,messageCount:value.messages.length,hasAnswer:value.messages.some(message=>message.text.includes("我的理解是"))})), errors, unexpectedNetwork: network, source: 'synthetic AudioContext; microphone never used; speech and model mocked' }, null, 2));
   console.log((code ? 'INTERVIEW SMOKE FAIL: ' : 'INTERVIEW SMOKE PASS: ') + detail); server.close(); app.exit(code);
 }
 process.on('uncaughtException', (error) => finish(1, error.stack));
@@ -129,6 +131,14 @@ app.whenReady().then(async () => {
   main.webContents.reload(); await waitFor(() => evaluate('!!document.querySelector("[data-page=interview]")'), 'reload');
   await evaluate('window.api.window.show()');
   await waitFor(()=>evaluate('!document.querySelector(".onboarding")'),'model state loaded');
+  const lanState = await evaluate('window.api.lan.status()');
+  const lan = await evaluate('window.api.lan.start(' + JSON.stringify(lanState.addresses.find(item => !/vmware|virtual|wsl/i.test(item.name))?.address || lanState.addresses[0]?.address) + ')');
+  const lanPost = async (route, body) => (await originalFetch(lan.url + route, { method: 'POST', headers: { Origin: lan.url, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json();
+  const pair = await lanPost('/api/pair', { code: lan.code, name: 'interview test companion' });
+  await evaluate('window.api.lan.approve(' + JSON.stringify(pair.requestId) + ',true)');
+  const paired = await lanPost('/api/pair-status', pair);lanAbort = new AbortController();
+  const events = await originalFetch(lan.url + '/api/events', { headers: { Authorization: 'Bearer ' + paired.token }, signal: lanAbort.signal });
+  void (async () => { const reader = events.body.getReader(), decoder = new TextDecoder();let buffer = '';try { while (true) { const { done, value } = await reader.read();if (done) break;buffer += decoder.decode(value, { stream: true });let end;while ((end = buffer.indexOf('\n\n')) >= 0) { const frame = buffer.slice(0, end);buffer = buffer.slice(end + 2);const data = /^data: (.*)$/m.exec(frame)?.[1];if (data && /^event: state$/m.test(frame)) synced.push(JSON.parse(data).snapshot); } } } catch (error) { if (!lanAbort.signal.aborted) errors.push(error.message); } })();
   await evaluate(`(()=>{
     navigator.mediaDevices.getUserMedia=()=>{throw new Error('Microphone must never be requested')};
     navigator.mediaDevices.getDisplayMedia=async()=>{
@@ -201,6 +211,10 @@ app.whenReady().then(async () => {
   assert.equal(await evaluate('window.__interviewAudio.stream.getAudioTracks().every(track=>track.readyState==="ended")'),true);
   await evaluate('window.api.settings.patch({hotkeys:'+JSON.stringify(savedHotkeys)+'})');
   const manifest = fs.readdirSync(process.env.ZHIYUE_USER_DATA_DIR); assert.equal(manifest.some((file) => /\.(wav|pcm|webm)$/i.test(file)), false);
+  assert.ok(synced.some(snapshot => snapshot.mode === 'interview' && snapshot.busy && snapshot.messages.some(message => message.text.includes('我的理解是'))), 'Interview partial answers reach paired companion');
+  await waitFor(() => synced.some(snapshot => snapshot.mode === 'interview' && !snapshot.busy && snapshot.messages.some(message => message.text.includes('做好取舍'))), 'Completed interview answer reaches paired companion');
+  assert.equal(synced.some(snapshot => /mock-speech-key|mock-qwen-key|mock-glm-key/.test(JSON.stringify(snapshot))), false);
+  lanAbort.abort();await evaluate('window.api.lan.stop()');
   assert.deepEqual(network, []); assert.deepEqual(errors, []);
   finish(0, 'Automatic protected interview overlay, native capture exclusion/click-through, recovery and shortcuts; provider discovery/test/save rollback; AudioWorklet transcription, automatic/manual answers, history and stop cancellation verified.');
 }).catch((error) => finish(1, error.stack));

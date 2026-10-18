@@ -20,6 +20,20 @@ electron.ipcRenderer.on(
   }
 );
 const api = {
+  lan: {
+    status: () => electron.ipcRenderer.invoke('lan:status'),
+    start: (address) => electron.ipcRenderer.invoke('lan:start', address),
+    stop: () => electron.ipcRenderer.invoke('lan:stop'),
+    rotate: () => electron.ipcRenderer.invoke('lan:rotate'),
+    approve: (id, allow) => electron.ipcRenderer.invoke('lan:approve', id, allow),
+    revoke: (id) => electron.ipcRenderer.invoke('lan:revoke', id),
+    scroll: (direction) => electron.ipcRenderer.invoke('lan:scroll', direction),
+    copyLink: () => electron.ipcRenderer.invoke('lan:copyLink'),
+    publish: (snapshot) => electron.ipcRenderer.invoke('lan:publish', snapshot),
+    ack: (value) => electron.ipcRenderer.invoke('lan:ack', value),
+    onStatus: (cb) => subscribe('lan:statusChanged', cb),
+    onCommand: (cb) => subscribe('lan:command', cb),
+  },
   tutorial: {
     openLink: (id) => electron.ipcRenderer.invoke('tutorial:openLink', id),
     copyValue: (id) => electron.ipcRenderer.invoke('tutorial:copyValue', id),

@@ -6,10 +6,11 @@ import { TranscriptionQueue } from '../../shared/interview-audio.mjs';
 import { buildLocalRequest, chooseModelSlot } from './requests.mjs';
 import { SystemAudioCapture } from './interview-capture.mjs';
 import { BRAND } from '../../shared/brand.mjs';
+import { useLanAnswer } from './lan-sync.mjs';
 const h = React.createElement, api = window.api;
 const uid = () => crypto.randomUUID();
 const fresh = () => ({ id: uid(), title: '', mode: 'interview', updatedAt: Date.now(), messages: [] });
-export function LiveInterview({ settings, models, documents, seed, report, configure, passive, onStarted }) {
+export function LiveInterview({ settings, models, documents, seed, report, configure, passive, onStarted, onConversation }) {
   const [conversation, setConversation] = React.useState(() => seed || fresh());
   const [draft, setDraft] = React.useState('');
   const [listening, setListening] = React.useState(false);
@@ -19,6 +20,8 @@ export function LiveInterview({ settings, models, documents, seed, report, confi
   const [level, setLevel] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
   const [timing, setTiming] = React.useState({});
+  useLanAnswer({ conversation, mode: 'interview', busy });
+  React.useEffect(() => { onConversation(conversation); }, [conversation, onConversation]);
   const alive = React.useRef(true), epoch = React.useRef(0), recording = React.useRef(null), active = React.useRef(null), queue = React.useRef([]), current = React.useRef(conversation), latest = React.useRef({}), actions = React.useRef({}), thread = React.useRef(null), follow = React.useRef(true);
   const options = normalizeInterviewOptions(settings?.interviewOptions);
   latest.current = { models, documents, options, report };
