@@ -18,6 +18,7 @@ import { GUIDE_EXAMPLES } from '../../shared/onboarding.mjs';
 import { LanSettings } from './lan-settings.mjs';
 import { useLanAnswer } from './lan-sync.mjs';
 import { InlineShortcutHints } from './inline-shortcuts.mjs';
+import { CareerPage } from './career-page.mjs';
 
 const h = React.createElement;
 const api = window.api;
@@ -51,6 +52,7 @@ function App() {
   const [settings, setSettings] = React.useState(null);
   const [models, setModels] = React.useState({ profiles: [], credentials: [] });
   const [documents, setDocuments] = React.useState([]);
+  const [resume, setResume] = React.useState(null);
   const [history, setHistory] = React.useState([]);
   const [displays, setDisplays] = React.useState([]);
   const [recordState, setRecordState] = React.useState(null);
@@ -73,7 +75,8 @@ function App() {
 
   React.useEffect(() => {
     mounted.current = true;
-    Promise.all([api.settings.get().then(setSettings), reloadModels(), reloadHistory(), reloadDocuments(), api.screenshot.displays().then(setDisplays), api.localRecords.state(LOCAL_ACCOUNT).then(setRecordState)]).catch((error) => report(error.message));
+    Promise.all([api.settings.get().then(setSettings), reloadModels(), reloadHistory(), reloadDocuments(), api.career.load().then(state => setResume(state.resume)), api.screenshot.displays().then(setDisplays), api.localRecords.state(LOCAL_ACCOUNT).then(setRecordState)]).catch((error) => report(error.message));
+    const unsubCareer = api.career.onChange(state => setResume(state.resume));
     const unsubWritten = api.written.onChange((state) => { void actions.current.writtenChanged?.(state); });
     const unsubInterview = api.interview.onWindowChange((state) => { void actions.current.interviewChanged?.(state); });
     const unsubSettings = api.settings.onChange((next) => { setSettings(next); setOpacityPreview(null); });
@@ -82,7 +85,7 @@ function App() {
     const unsubHotkeys = api.hotkey.onTriggered((action) => actions.current.hotkey?.(action));
     const unsubLan = api.lan.onCommand(command => { void actions.current.lanCommand?.(command); });
     const unsubReveal = api.window.onRevealRequested(async ({ token }) => { await paint(); await api.window.commitReveal(token); });
-    return () => { mounted.current = false; unsubWritten(); unsubInterview(); unsubSettings(); unsubOpacity(); unsubInteraction(); unsubHotkeys(); unsubLan(); unsubReveal(); if (active.current) void api.personalModels.cancel(active.current); };
+    return () => { mounted.current = false; unsubCareer(); unsubWritten(); unsubInterview(); unsubSettings(); unsubOpacity(); unsubInteraction(); unsubHotkeys(); unsubLan(); unsubReveal(); if (active.current) void api.personalModels.cancel(active.current); };
   }, []);
   React.useEffect(() => { if (follow.current) thread.current?.scrollTo({ top: thread.current.scrollHeight, behavior: 'auto' }); }, [conversation.messages, busy]);
   React.useEffect(() => { void api.hotkey.setAnswerScrollActive(['chat', 'exam', 'interview'].includes(page)); return () => { void api.hotkey.setAnswerScrollActive(false); }; }, [page]);
@@ -105,7 +108,7 @@ function App() {
     const user = { id: uid(), role: 'user', text: userText + (attachments.length ? `\n\n[附 ${attachments.length} 张截图]` : ''), images: attachments, status: 'completed' };
     const reply = { id: uid(), role: 'assistant', text: '', status: 'completed' };
     const next = { ...conversation, title: conversation.title || userText.slice(0, 45), updatedAt: Date.now(), messages: [...conversation.messages, user, reply] };
-    const request = buildLocalRequest({ question: userText, images: attachments, history: conversation.messages, documents, mode: conversation.mode, prompt: settings?.customPrompts || '', writtenOptions: settings?.writtenOptions });
+    const request = buildLocalRequest({ question: userText, images: attachments, history: conversation.messages, documents, resume, mode: conversation.mode, prompt: settings?.customPrompts || '', writtenOptions: settings?.writtenOptions });
     active.current = requestId;
     follow.current = true;
     setBusy(true); setLanError(''); setDraft(''); setImages([]); setPage(conversation.mode === 'written' ? 'exam' : 'chat'); setNotice(null); setConversation(next);
@@ -367,9 +370,9 @@ function App() {
       h('section', { className: 'panel about-brand', 'data-about-brand': true },
         h('img', { src: './assets/logo.svg', alt: '知跃 Logo' }),
         h('div', { className: 'about-brand-copy' }, h('h3', null, BRAND.name + ' · ' + BRAND.englishName + ' ' + BRAND.version), h('p', null, BRAND.tagline), h('p', { className: 'developer-watermark' }, '开发者 · ' + BRAND.developer), h('p', { className: 'muted small' }, '社区免费版 · 连接自己的模型，数据保存在本机。'))),
-      h('section', { className: 'panel capability-note' }, h('h3', null, '这个版本支持什么'), h('p', null, '支持实时面试、笔试截图出答案、本机知识库和会话记录。同一局域网配对后，手机可遥控电脑截图，两端同步显示回答；电脑可滚动手机的知跃答案页面。'), h('p', { className: 'muted small' }, '社区版不依赖应用账号服务器。使用在线语音与回答模型时需联网；也可连接本机兼容服务。')));
+      h('section', { className: 'panel capability-note' }, h('h3', null, '这个版本支持什么'), h('p', null, '支持简历驱动的实时 / 模拟面试、笔试截图出答案、本机知识库、会话记录，以及招聘网站试验接入、职位筛选与确认后批量投递。同一局域网配对后，手机可遥控电脑截图，两端同步显示回答；电脑可滚动手机的知跃答案页面。'), h('p', { className: 'muted small' }, '社区版不依赖应用账号服务器。使用在线语音与回答模型时需联网；也可连接本机兼容服务。')));
   }
-  const pages = [['chat', '✦', '工作台'], ['interview', '◉', '实时面试'], ['exam', '▣', '笔试模式'], ['knowledge', '▤', '本机知识库'], ['history', '◷', '会话记录'], ['guide', '?', '新手教程'], ['settings', '⚙', '连接与设置']];
+  const pages = [['chat', '✦', '工作台'], ['interview', '◉', '实时面试'], ['exam', '▣', '笔试模式'], ['resume', '♧', '个人简历'], ['jobs', '▦', '求职工作台'], ['knowledge', '▤', '本机知识库'], ['history', '◷', '会话记录'], ['guide', '?', '新手教程'], ['settings', '⚙', '连接与设置']];
   return h('div', { className: `local-app ${focus ? 'is-focus' : ''} ${writtenActive ? 'is-written-passive' : ''} ${interviewPassive ? 'is-interview-passive' : ''}`, 'data-local-app': true, 'data-written-active': writtenActive, 'data-interview-passive': interviewPassive, style: { opacity: opacityPreview ?? (writtenActive ? normalizeWrittenOptions(settings?.writtenOptions).opacity : interviewPassive ? settings?.interviewOptions?.opacity || .52 : through ? settings?.mouseThroughOpacity || 0.48 : settings?.opacity || 1) } },
     !focus && h('aside', { className: 'sidebar' }, h('div', { className: 'brand drag' }, h('img', { src: './assets/logo.svg', alt: '知跃 Logo' }), h('b', null, BRAND.name), h('span', null, '社区版')),
       button('＋ 新会话', () => { if (page === 'interview') { setInterviewSeed(null); setInterviewKey((value) => value + 1); return; } setConversation(fresh(page === 'exam' ? 'written' : 'chat')); setImages([]); setDraft(''); setPage(page === 'exam' ? 'exam' : 'chat'); }, { className: 'new-conversation', disabled: busy || capturing }),
@@ -384,7 +387,7 @@ function App() {
         button('隐藏', () => api.window.hide(), { title: `${settings?.hotkeys?.['window:show'] || '托盘'} 解除隐藏`, 'aria-label': '隐藏窗口' }), button(focus ? '退出专注' : '专注窗口', () => toggleFocus()), button('—', () => api.window.minimize(), { 'aria-label': '最小化' }), button('×', () => api.window.close(), { 'aria-label': '关闭窗口' }))),
       api.runtime.platform === 'win32' && focus && (interviewPassive ? settings?.interviewOptions?.showShortcutHints !== false : normalizeWrittenOptions(settings?.writtenOptions).showShortcutHints) && h(InlineShortcutHints, { settings, mode: page === 'interview' ? 'interview' : 'exam', through }),
       notice && h('div', { className: notice.success ? 'notice success' : 'notice', role: notice.success ? 'status' : 'alert' }, h('span', null, notice.text), button('×', () => setNotice(null), { 'aria-label': '关闭提示' })),
-      page === 'interview' ? h(LiveInterview, { key: interviewKey, seed: interviewSeed, settings, models, documents, report, passive: interviewPassive, onStarted: interviewChanged, onConversation: setConversation, configure: () => setPage('settings') }) : page === 'guide' ? h(BeginnerGuide, { models, onConfigure: configureFromGuide, onNavigate: selectPage, report }) : page === 'chat' || page === 'exam' ? renderChat() : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && !writtenActive && !interviewPassive && h(FocusResizeHandle));
+      page === 'interview' ? h(LiveInterview, { key: interviewKey, seed: interviewSeed, settings, models, documents, resume, report, passive: interviewPassive, onStarted: interviewChanged, onConversation: setConversation, configure: () => setPage('settings') }) : page === 'guide' ? h(BeginnerGuide, { models, onConfigure: configureFromGuide, onNavigate: selectPage, report }) : page === 'chat' || page === 'exam' ? renderChat() : page === 'resume' || page === 'jobs' ? h(CareerPage, { section: page, models, report, onNavigate: selectPage }) : page === 'knowledge' ? renderKnowledge() : page === 'history' ? renderHistory() : renderSettings()), focus && !writtenActive && !interviewPassive && h(FocusResizeHandle));
 }
 
 const surface = new URLSearchParams(window.location.search).get('surface');

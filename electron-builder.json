@@ -2,18 +2,44 @@
   "appId": "gulinyue.zhiyue",
   "productName": "知跃",
   "copyright": "Copyright © 2026 gulinyue",
-  "directories": { "output": "dist", "buildResources": "resources" },
-  "files": ["out/**/*", "!**/*.map", "LICENSE", "licenses/**/*", "package.json"],
+  "directories": {
+    "output": "dist",
+    "buildResources": "resources"
+  },
+  "files": [
+    "out/**/*",
+    "!**/*.map",
+    "LICENSE",
+    "licenses/**/*",
+    "package.json"
+  ],
   "extraResources": [
-    { "from": "resources/icon.png", "to": "icon.png" },
-    { "from": "resources/icon.ico", "to": "icon.ico" }
+    {
+      "from": "resources/icon.png",
+      "to": "icon.png"
+    },
+    {
+      "from": "resources/icon.ico",
+      "to": "icon.ico"
+    }
   ],
   "asar": true,
-  "asarUnpack": ["node_modules/koffi/**/*", "node_modules/@koromix/**/*"],
+  "asarUnpack": [
+    "node_modules/koffi/**/*",
+    "node_modules/@koromix/**/*",
+    "node_modules/@napi-rs/**/*"
+  ],
   "npmRebuild": false,
   "electronDist": "node_modules/electron/dist",
   "win": {
-    "target": [{ "target": "nsis", "arch": ["x64"] }],
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
     "icon": "resources/icon.ico",
     "executableName": "Zhiyue",
     "requestedExecutionLevel": "asInvoker"
@@ -27,7 +53,10 @@
     "createDesktopShortcut": "always",
     "createStartMenuShortcut": true,
     "shortcutName": "知跃",
-    "installerLanguages": ["zh_CN", "en_US"],
+    "installerLanguages": [
+      "zh_CN",
+      "en_US"
+    ],
     "language": "2052",
     "runAfterFinish": false,
     "deleteAppDataOnUninstall": false

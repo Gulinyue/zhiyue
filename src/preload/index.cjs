@@ -20,6 +20,17 @@ electron.ipcRenderer.on(
   }
 );
 const api = {
+  career: {
+    exportQueue: () => electron.ipcRenderer.invoke('career:exportQueue'),
+    load: () => electron.ipcRenderer.invoke('career:load'),
+    saveResume: value => electron.ipcRenderer.invoke('career:saveResume', value), clearResume: () => electron.ipcRenderer.invoke('career:clearResume'),
+    importResume: () => electron.ipcRenderer.invoke('career:importResume'), export: value => electron.ipcRenderer.invoke('career:export', value), copy: value => electron.ipcRenderer.invoke('career:copy', value),
+    savePreferences: value => electron.ipcRenderer.invoke('career:savePreferences', value),
+    saveJob: value => electron.ipcRenderer.invoke('career:saveJob', value), deleteJob: id => electron.ipcRenderer.invoke('career:deleteJob', id), importJobs: values => electron.ipcRenderer.invoke('career:importJobs', values), retryJob: id => electron.ipcRenderer.invoke('career:retryJob', id),
+    openSite: (platform, keyword) => electron.ipcRenderer.invoke('career:openSite', platform, keyword), openJob: id => electron.ipcRenderer.invoke('career:openJob', id), collect: platform => electron.ipcRenderer.invoke('career:collect', platform), browsers: () => electron.ipcRenderer.invoke('career:browsers'),
+    campaignStatus: () => electron.ipcRenderer.invoke('career:campaignStatus'), previewBatch: ids => electron.ipcRenderer.invoke('career:previewBatch', ids), startBatch: token => electron.ipcRenderer.invoke('career:startBatch', token), stopBatch: () => electron.ipcRenderer.invoke('career:stopBatch'),
+    onChange: cb => subscribe('career:changed', cb), onBrowsers: cb => subscribe('career:browsers', cb), onCampaign: cb => subscribe('career:campaignChanged', cb),
+  },
   lan: {
     status: () => electron.ipcRenderer.invoke('lan:status'),
     start: (address) => electron.ipcRenderer.invoke('lan:start', address),

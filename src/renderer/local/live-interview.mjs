@@ -10,7 +10,7 @@ import { useLanAnswer } from './lan-sync.mjs';
 const h = React.createElement, api = window.api;
 const uid = () => crypto.randomUUID();
 const fresh = () => ({ id: uid(), title: '', mode: 'interview', updatedAt: Date.now(), messages: [] });
-export function LiveInterview({ settings, models, documents, seed, report, configure, passive, onStarted, onConversation }) {
+export function LiveInterview({ settings, models, documents, resume, seed, report, configure, passive, onStarted, onConversation }) {
   const [conversation, setConversation] = React.useState(() => seed || fresh());
   const [draft, setDraft] = React.useState('');
   const [listening, setListening] = React.useState(false);
@@ -24,7 +24,7 @@ export function LiveInterview({ settings, models, documents, seed, report, confi
   React.useEffect(() => { onConversation(conversation); }, [conversation, onConversation]);
   const alive = React.useRef(true), epoch = React.useRef(0), recording = React.useRef(null), active = React.useRef(null), queue = React.useRef([]), current = React.useRef(conversation), latest = React.useRef({}), actions = React.useRef({}), thread = React.useRef(null), follow = React.useRef(true);
   const options = normalizeInterviewOptions(settings?.interviewOptions);
-  latest.current = { models, documents, options, report };
+  latest.current = { models, documents, resume, options, report };
   const update = (next) => { current.current = next; if (alive.current) setConversation(next); };
   const persist = async (value) => { try { await api.workspace.save(value); } catch (error) { if (alive.current) latest.current.report(error.message); } };
   function stopAudio() {
@@ -43,7 +43,7 @@ export function LiveInterview({ settings, models, documents, seed, report, confi
     if (active.current || !alive.current) return;
     while (queue.current.length && alive.current) {
       const question = queue.current.shift(); setQueued(queue.current.length);
-      const { models: modelState, documents: docs, options: opts } = latest.current;
+      const { models: modelState, documents: docs, resume: candidate, options: opts } = latest.current;
       const slot = chooseModelSlot(modelState.profiles, false);
       if (!slot) { latest.current.report('请先配置文字问答模型。'); queue.current = []; setQueued(0); configure(); return; }
       if (current.current.messages.length >= 198) { end(); latest.current.report('本次面试记录已满，请开始新面试。'); return; }
@@ -53,7 +53,7 @@ export function LiveInterview({ settings, models, documents, seed, report, confi
       const run = { id: `interview-${uid()}`, text: '', cancelled: false, startedAt: performance.now() }; active.current = run;
       setTiming(value => ({ ...value, firstMs: null }));
       update(next); follow.current = true; setBusy(true);
-      const request = buildLocalRequest({ question, mode: 'interview', history: previous.messages, documents: opts.useKnowledge ? docs : [], interviewOptions: opts, prompt: `回答语言：${opts.answerLanguage}。\n${opts.prompt}` });
+      const request = buildLocalRequest({ question, mode: 'interview', history: previous.messages, documents: opts.useKnowledge ? docs : [], resume: candidate, interviewOptions: opts, prompt: `回答语言：${opts.answerLanguage}。\n${opts.prompt}` });
       if (opts.speedMode === 'fast' && modelState.profiles.find(profile => profile.slot === slot)?.providerId === 'deepseek') request.thinkingLevel = 'none';
       let flushTimer;
       const flush = () => { flushTimer = undefined; if (alive.current && active.current === run) update({ ...next, messages: [...next.messages.slice(0, -1), { ...reply, text: run.text }] }); };
