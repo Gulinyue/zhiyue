@@ -17,6 +17,7 @@ const define = {};
 const results = await Promise.all([
   build({ ...common, entryPoints: ['src/shared/brand.mjs'], outfile: 'out/main/brand.cjs', platform: 'node', target: 'node22', format: 'cjs' }),
   build({ ...common, entryPoints: ['src/main/index.mjs'], outfile: 'out/main/runtime.cjs', platform: 'node', target: 'node22', format: 'cjs', packages: 'external', define }),
+  build({ ...common, entryPoints: ['src/main/career/import-worker.mjs'], outfile: 'out/main/resume-worker.mjs', platform: 'node', target: 'node22', format: 'esm', packages: 'external' }),
   build({ ...common, entryPoints: ['src/preload/index.cjs'], outfile: 'out/preload/index.js', platform: 'node', target: 'node22', format: 'cjs', external: ['electron'] }),
   build({ ...common, entryPoints: ['src/renderer/local/app.mjs'], outfile: 'out/renderer/assets/app.js', platform: 'browser', target: 'chrome140', format: 'esm', define }),
   build({ ...common, entryPoints: ['src/renderer/local/style.css'], outfile: 'out/renderer/assets/app.css', loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file' }, assetNames: '[name]-[hash]' }),

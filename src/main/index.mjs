@@ -5,6 +5,8 @@ import { IPC } from "../shared/channels.mjs";
 import { GUIDE_LINKS, GUIDE_VALUES } from '../shared/onboarding.mjs';
 import { createLanRuntime } from './lan/runtime.mjs';
 import { randomUUID } from 'node:crypto';
+import { registerCareerIpc } from './career/runtime.mjs';
+import { isRecruitmentWebContents } from './career/browser.mjs';
 import { createIpcGateway } from "./ipc/gateway.mjs";
 import * as electron from "electron";
 import * as path from "node:path";
@@ -768,6 +770,7 @@ function enterWrittenMode() {
   return enterPassiveTask('written');
 }
 function enterPassiveTask(kind) {
+  careerRuntime?.stop('进入笔试或面试模式，自动投递已停止。');
   if (passiveTaskKind() === kind) return { ...passiveTaskStatus(kind), token: null };
   if (passiveTaskKind()) throw new Error('请先退出当前笔试或面试模式。');
   if (kind === 'written' && interviewIsActive()) throw new Error('请先结束正在启动的面试。');
@@ -851,6 +854,7 @@ function setMainRendererUnavailableHandler(handler) {
 }
 function failClosedForRendererLoss(owner, reason) {
   if (win !== owner) return;
+  careerRuntime?.dispose();
   void lanRuntime.dispose();
   for (const pending of lanCommands.values()) { clearTimeout(pending.timer);pending.reject(Object.assign(new Error('电脑窗口已断开，请在电脑重新开启互通。'), { status: 409 })); }
   lanCommands.clear();
@@ -2432,6 +2436,7 @@ function snapshotTaskSurfaceQaWindow(candidate) {
 let remoteControlLocked = false;
 let remoteControlSuspended = false;
 const lanCommands = new Map();
+let careerRuntime = null;
 const lanRuntime = createLanRuntime({
   mobileRoot: path.join(__dirname, '../mobile'),
   isBlocked: () => remoteControlPowerState().blocked,
@@ -2487,6 +2492,7 @@ function registerIpc() {
   if (ipcRegistered) return;
   ipcRegistered = true;
   registerWorkspaceIpc(mainIpc);
+  careerRuntime = registerCareerIpc(mainIpc, { electron, owner: () => win, workerPath: path.join(__dirname, 'resume-worker.mjs'), isBlocked: () => remoteControlPowerState().blocked || !!passiveTaskKind() });
   mainIpc.handle('lan:status', () => lanRuntime.status());
   mainIpc.handle('lan:start', (_event, address) => lanRuntime.start(address));
   mainIpc.handle('lan:stop', () => lanRuntime.stop());
@@ -2996,6 +3002,7 @@ function registerRemoteControlPowerMonitorBridge() {
   powerMonitorBridgeRegistered = true;
   electron.powerMonitor.on("lock-screen", () => {
     remoteControlLocked = true;
+    careerRuntime?.stop('电脑已锁屏，自动投递已暂停。');
     lanRuntime.bridge.setBlocked(true);
     broadcast(IPC.remoteControlPowerStateChanged, remoteControlPowerState());
   });
@@ -3006,6 +3013,7 @@ function registerRemoteControlPowerMonitorBridge() {
   });
   electron.powerMonitor.on("suspend", () => {
     remoteControlSuspended = true;
+    careerRuntime?.stop('电脑已休眠，自动投递已暂停。');
     lanRuntime.bridge.setBlocked(true);
     broadcast(IPC.remoteControlPowerStateChanged, remoteControlPowerState());
   });
@@ -3342,7 +3350,7 @@ function createRendererUnavailableHandler(controls) {
 }
 electron.app.on("web-contents-created", (_event, contents) => {
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
-  contents.on("will-navigate", (event) => event.preventDefault());
+  contents.on("will-navigate", (event) => { if (!isRecruitmentWebContents(contents)) event.preventDefault(); });
   contents.on("will-attach-webview", (event) => event.preventDefault());
 });
 const gotLock = electron.app.requestSingleInstanceLock();
@@ -3402,6 +3410,7 @@ if (!gotLock) {
   });
   electron.app.on("will-quit", () => {
     stopInterview();
+    careerRuntime?.dispose();
     void lanRuntime.dispose();
     clearInterval(writtenProtectionTimer);
     destroyAppTray();

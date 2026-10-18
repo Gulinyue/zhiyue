@@ -48,3 +48,7 @@ Windows 快捷键提示栏与答案在同一原生窗口绘制，共用鼠标穿
 未在用户的真实音频设备、真实面试声音或付费语音服务上验收。背景音乐、音量和网络延迟影响识别和回答，可调整灵敏度、停顿时长或使用手动提交。
 
 接口依据：[千问百炼](https://help.aliyun.com/zh/model-studio/qwen-asr-api-reference)、[智谱 GLM-ASR](https://docs.bigmodel.cn/cn/guide/models/sound-and-video/glm-asr-2512)、[OpenAI](https://developers.openai.com/api/docs/guides/speech-to-text)、[Groq](https://console.groq.com/docs/speech-to-text)、[硅基流动](https://docs.siliconflow.cn/docs/api/audio-transcriptions-post)、[Together AI](https://docs.together.ai/docs/inference/transcription/overview)、[Electron 系统收音](https://www.electronjs.org/docs/latest/api/session#sessetdisplaymediarequesthandlerhandler-opts)。
+
+## 个人简历参考
+
+在侧栏“个人简历”导入或粘贴真实经历，核对并保存，打开“面试中参考这份简历”。新的面试问题会按问题检索简历，快速模式最多约 6000 字、稳健模式最多约 12000 字；个人经历问题优先使用简历事实，简历外的任职、项目和指标不会被要求编造。常见联系方式会遮蔽后发送到所配置模型；原文仍保存在本机，开关不影响已有会话。
