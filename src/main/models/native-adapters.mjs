@@ -42,7 +42,7 @@ export class NativeModelAdapter {
     let text = '', completed = false;
     try {
       const response = await this.fetchImpl(endpoint, { method: 'POST', redirect: 'error', signal: scope.signal, headers: modelHeaders(this.profile, this.apiKey), body: JSON.stringify(nativeRequest(this.profile, request)) });
-      scope.markResponse(); assertPersonalModelResponseOk('custom-api', response);
+      scope.markResponse(); await assertPersonalModelResponseOk('custom-api', response);
       for await (const item of readSseJson('custom-api', response.body, scope.markActivity)) {
         if (item.error || item.type === 'error' || item.promptFeedback?.blockReason) throw new Error('模型服务拒绝了请求');
         const candidate = item.candidates?.[0];
@@ -64,7 +64,7 @@ export class NativeModelAdapter {
 export async function discoverModels(profile, apiKey, fetchImpl = globalThis.fetch.bind(globalThis)) {
   const endpoint = `${profile.baseUrl}/models`;
   const response = await fetchImpl(endpoint, { redirect: 'error', headers: modelHeaders(profile, apiKey), signal: AbortSignal.timeout(20000) });
-  assertPersonalModelResponseOk('custom-api', response);
+  await assertPersonalModelResponseOk('custom-api', response);
   const data = await readResponseJson('custom-api', response);
   const rows = data.data || data.models || [];
   if (!Array.isArray(rows)) throw new Error('服务商没有返回模型列表，请手动填写模型 ID');

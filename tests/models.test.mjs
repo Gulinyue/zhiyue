@@ -75,3 +75,19 @@ test('canceling a model request aborts its underlying network operation', async 
   await rejection;
   assert.equal(signal.aborted, true);
 });
+test('chat completions distinguishes context overflow from other bad requests', async () => {
+  const request = { messages: [{ role: 'user', content: 'hello' }] };
+  const cases = [
+    [{ code: 'context_length_exceeded' }, 'PERSONAL_MODEL_CONTEXT_LIMIT'],
+    [{ message: 'This model has a maximum context length of 8192 tokens.' }, 'PERSONAL_MODEL_CONTEXT_LIMIT'],
+    [{ code: 'invalid_request_error', message: 'Image format is unsupported' }, 'PERSONAL_MODEL_INVALID_REQUEST'],
+  ];
+  for (const [error, code] of cases) {
+    const adapter = new OpenAiCompatiblePersonalModelAdapter({
+      profile: profile(),
+      apiKey: 'test-key-123',
+      fetchImpl: async () => Response.json({ error }, { status: 400 }),
+    });
+    await assert.rejects(adapter.stream(request, () => {}), { code, status: 400 });
+  }
+});

@@ -29,7 +29,7 @@ class OpenAiCompatiblePersonalModelAdapter {
         body: JSON.stringify(buildOpenAiCompatibleBody(this.profile, request, false)),
         signal: scope.signal
       });
-      assertPersonalModelResponseOk(this.provider, response);
+      await assertPersonalModelResponseOk(this.provider, response);
       const payload = await readResponseJson(this.provider, response);
       const text = readChatCompletionText(payload);
       if (!text) throw emptyResponseError$1();
@@ -64,7 +64,7 @@ class OpenAiCompatiblePersonalModelAdapter {
         signal: scope.signal
       });
       scope.markResponse();
-      assertPersonalModelResponseOk(this.provider, response);
+      await assertPersonalModelResponseOk(this.provider, response);
       if (isJsonResponse$1(response)) {
         const payload = await readResponseJson(this.provider, response);
         scope.markActivity();
@@ -272,7 +272,7 @@ class OpenAiResponsesPersonalModelAdapter {
         body: JSON.stringify(buildOpenAiResponsesBody(this.profile, request, false)),
         signal: scope.signal
       });
-      assertPersonalModelResponseOk(this.provider, response);
+      await assertPersonalModelResponseOk(this.provider, response);
       const payload = await readResponseJson(this.provider, response);
       if (hasResponsesError(payload)) throw responsesStreamError(response.status);
       const text = readResponsesText(payload);
@@ -337,7 +337,7 @@ class OpenAiResponsesPersonalModelAdapter {
         signal: scope.signal
       });
       scope.markResponse();
-      assertPersonalModelResponseOk(this.provider, response);
+      await assertPersonalModelResponseOk(this.provider, response);
       if (isJsonResponse(response)) {
         const payload = await readResponseJson(this.provider, response);
         scope.markActivity();

@@ -3284,6 +3284,7 @@ function personalModelError(error) {
     }
     const messages = {
       PERSONAL_MODEL_ABORTED: "请求已取消",
+      PERSONAL_MODEL_CONTEXT_LIMIT: "本次请求超出模型上下文上限，请减少截图数量、缩短题目或分段截图后重试。",
       PERSONAL_MODEL_TIMEOUT: "自有模型响应超时，请重试",
       PERSONAL_MODEL_CREDENTIAL_REJECTED: "API Key 无效或无权调用该模型",
       PERSONAL_MODEL_RATE_LIMITED: "自有模型当前限流，请稍后重试",

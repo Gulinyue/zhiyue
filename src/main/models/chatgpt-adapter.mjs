@@ -22,7 +22,7 @@ export class ChatGptPlanAdapter {
     try {
       const token = await this.auth.accessToken(); scope.signal.throwIfAborted();
       const response = await this.fetchImpl('https://api.openai.com/v1/responses', { method: 'POST', redirect: 'error', signal: scope.signal, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify(body) });
-      scope.markResponse(); assertPersonalModelResponseOk('custom-api', response);
+      scope.markResponse(); await assertPersonalModelResponseOk('custom-api', response);
       for await (const event of readSseJson('custom-api', response.body, scope.markActivity)) {
         if (['error', 'response.failed', 'response.incomplete'].includes(event.type)) {
           const code = event.response?.error?.code || event.error?.code || event.code;

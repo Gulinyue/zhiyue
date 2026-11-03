@@ -182,9 +182,22 @@ function createPersonalModelStreamAbortScope(provider, options) {
     }
   };
 }
-function assertPersonalModelResponseOk(provider, response) {
+async function assertPersonalModelResponseOk(provider, response) {
   if (response.ok) return;
   const status = response.status;
+  if (status === 400 || status === 422) {
+    const body = await readResponseJson(provider, response).catch(() => null);
+    const { code, message } = body?.error ?? {};
+    if (code === "context_length_exceeded" || (typeof message === "string" &&
+      /maximum context length|context (?:length|window) (?:was )?exceeded|exceeds? (?:the )?(?:model.s )?context (?:length|window)/iu.test(message))) {
+      throw new PersonalModelAdapterError(
+        "PERSONAL_MODEL_CONTEXT_LIMIT",
+        "The personal model context limit was exceeded",
+        provider,
+        status
+      );
+    }
+  }
   if (status === 401 || status === 403) {
     throw new PersonalModelAdapterError(
       "PERSONAL_MODEL_CREDENTIAL_REJECTED",

@@ -102,13 +102,16 @@ function App() {
     if (active.current || capturing || (!question.trim() && !attachments.length)) return;
     const slot = chooseModelSlot(models.profiles, attachments.length > 0);
     if (!slot) { setPage('settings'); report(attachments.length ? '请先配置截图模型。' : '请先配置一个模型连接。'); return; }
-    if (conversation.messages.length >= 198) { report('本会话已满，请开始新会话。'); return; }
+    const full = conversation.messages.length > 198;
+    if (full && !attachments.length) { report('本会话已满，请开始新会话。'); return; }
+    const current = full ? fresh(conversation.mode) : conversation;
     const requestId = `local-${uid()}`;
     const userText = question.trim() || (conversation.mode === 'written' ? WRITTEN_CAPTURE_PROMPT : '请分析截图中的问题并解答。');
     const user = { id: uid(), role: 'user', text: userText + (attachments.length ? `\n\n[附 ${attachments.length} 张截图]` : ''), images: attachments, status: 'completed' };
     const reply = { id: uid(), role: 'assistant', text: '', status: 'completed' };
-    const next = { ...conversation, title: conversation.title || userText.slice(0, 45), updatedAt: Date.now(), messages: [...conversation.messages, user, reply] };
-    const request = buildLocalRequest({ question: userText, images: attachments, history: conversation.messages, documents, resume, mode: conversation.mode, prompt: settings?.customPrompts || '', writtenOptions: settings?.writtenOptions });
+    const next = { ...current, title: current.title || userText.slice(0, 45), updatedAt: Date.now(), messages: [...current.messages, user, reply] };
+    const requestInput = { question: userText, images: attachments, history: current.messages, documents, resume, mode: current.mode, prompt: settings?.customPrompts || '', writtenOptions: settings?.writtenOptions };
+    const request = buildLocalRequest(requestInput);
     active.current = requestId;
     follow.current = true;
     setBusy(true); setLanError(''); setDraft(''); setImages([]); setPage(conversation.mode === 'written' ? 'exam' : 'chat'); setNotice(null); setConversation(next);
@@ -124,7 +127,14 @@ function App() {
     });
     let status = 'completed';
     try {
-      const result = await api.personalModels.run({ requestId, taskKind: attachments.length ? 'exam' : 'interview', slot, request });
+      const run = (payload) => api.personalModels.run({ requestId, taskKind: attachments.length ? 'exam' : 'interview', slot, request: payload });
+      let result = await run(request);
+      if (attachments.length && mounted.current && !text && result.error?.code === 'PERSONAL_MODEL_CONTEXT_LIMIT') {
+        const compact = buildLocalRequest({ ...requestInput, history: [], documents: [], resume: null });
+        if (request.messages.length > compact.messages.length || request.messages[0].content !== compact.messages[0].content) {
+          result = await run(compact);
+        }
+      }
       if (!result.ok) {
         if (result.error?.code === 'PERSONAL_MODEL_ABORTED') status = 'cancelled';
         else throw new Error(result.error?.message || '模型请求失败');
